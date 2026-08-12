@@ -1,7 +1,7 @@
 export const ROWS = 10;
 export const COLS = 17;
 export const CELL_COUNT = ROWS * COLS;
-export const CELL_SIZE = 40;
+export const CELL_SIZE = 44;
 export const TARGET_SUM = 10;
 export const MIN_VALID_RECTS = 30;
 export const MAX_GENERATION_ATTEMPTS = 200;
