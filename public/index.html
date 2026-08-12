@@ -12,15 +12,31 @@
 <section id="screen-title" class="screen active">
   <h1>🍎 사과 게임 with people</h1>
   <p id="title-tagline">드래그해서 합이 10이 되는 사과를 지우세요. 제한 시간 120초, 총 228개의 사과</p>
+  <div id="account-status" class="account-status"></div>
   <div class="mode-buttons">
     <button id="btn-daily">데일리 챌린지</button>
     <button id="btn-practice" class="secondary">자유 연습</button>
   </div>
-  <p id="daily-note" class="daily-note">데일리 챌린지는 하루에 한 번만 도전할 수 있습니다.</p>
+  <p id="daily-note" class="daily-note">데일리 챌린지는 로그인 후 하루에 한 번만 도전할 수 있습니다.</p>
   <div class="link-button-row">
     <button id="btn-view-rules" class="link-button">게임 방법</button>
     <button id="btn-view-leaderboard" class="link-button">랭킹 보기</button>
   </div>
+</section>
+
+<section id="screen-account" class="screen">
+  <h2>계정</h2>
+  <div class="account-card">
+    <p id="account-intro" class="account-intro">데일리 챌린지는 로그인 후 이용할 수 있습니다.</p>
+    <input id="account-name-input" type="text" maxlength="12" placeholder="이름 (최대 12자)">
+    <input id="account-pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN (숫자 4~8자리)">
+    <div class="account-buttons">
+      <button id="btn-account-login">로그인</button>
+      <button id="btn-account-register" class="secondary">계정 만들기</button>
+    </div>
+    <div id="account-message" class="submit-message"></div>
+  </div>
+  <button id="btn-account-back" class="secondary">돌아가기</button>
 </section>
 
 <section id="screen-rules" class="screen">
@@ -35,7 +51,7 @@
       <li>드래그 중 <strong>ESC 또는 우클릭</strong>을 누르면 드래그를 취소할 수 있습니다.</li>
       <li>제한 시간은 <strong>120초</strong>이며, 점수는 <strong>제거한 사과의 개수</strong>입니다.</li>
       <li>제거된 칸은 다시 채워지지 않으니, 시간이 지날수록 남은 사과가 흩어져 더 어려워집니다.</li>
-      <li><strong>데일리 챌린지</strong>는 모든 플레이어가 같은 날 같은 보드를 풉니다. 실력으로 순위가 결정되며, 하루에 한 번만 도전할 수 있습니다.</li>
+      <li><strong>데일리 챌린지</strong>는 모든 플레이어가 같은 날 같은 보드를 풉니다. 이름+PIN으로 로그인해야 플레이할 수 있고, 실력으로 순위가 결정되며 하루에 한 번만 도전할 수 있습니다.</li>
       <li><strong>자유 연습</strong>은 매번 랜덤한 보드로 무제한 플레이할 수 있지만 랭킹에는 등록되지 않습니다.</li>
     </ol>
   </div>
@@ -94,7 +110,7 @@
     </div>
 
     <div id="submit-section" class="submit-section">
-      <input id="nickname-input" type="text" maxlength="12" placeholder="닉네임 (최대 12자)">
+      <div id="submit-account-label" class="submit-account-label"></div>
       <button id="btn-submit-score">랭킹 등록</button>
       <div id="submit-message" class="submit-message"></div>
     </div>

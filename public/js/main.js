@@ -1,14 +1,15 @@
-import { generateBoard, getDailySeedString, hashStringToSeed, ROWS, COLS, CELL_SIZE, CELL_COUNT } from "./board.js";
+import { generateBoard, getDailySeedString, ROWS, COLS, CELL_SIZE, CELL_COUNT } from "./board.js";
 import { createDragController } from "./drag.js";
 import { runCountdown, createGameTimer, GAME_DURATION_SECONDS } from "./timer.js";
 import { createScoreTracker } from "./score.js";
 
-const CLIENT_ID_KEY = "appleGameClientId";
-const NICKNAME_KEY = "appleGameNickname";
+const ACCOUNT_KEY = "appleGameAccount";
 const LEADERBOARD_PERIODS = ["daily", "weekly", "alltime"];
+const PIN_PATTERN = /^\d{4,8}$/;
 
 const screens = {
   title: document.getElementById("screen-title"),
+  account: document.getElementById("screen-account"),
   game: document.getElementById("screen-game"),
   result: document.getElementById("screen-result"),
   leaderboard: document.getElementById("screen-leaderboard"),
@@ -38,46 +39,51 @@ const btnDailyEl = document.getElementById("btn-daily");
 const todayTopScoreEl = document.getElementById("today-top-score");
 const top5ListEl = document.getElementById("top5-list");
 const submitSectionEl = document.getElementById("submit-section");
-const nicknameInputEl = document.getElementById("nickname-input");
+const submitAccountLabelEl = document.getElementById("submit-account-label");
 const btnSubmitScoreEl = document.getElementById("btn-submit-score");
 const submitMessageEl = document.getElementById("submit-message");
 const leaderboardListEl = document.getElementById("leaderboard-list");
+const accountStatusEl = document.getElementById("account-status");
+const accountIntroEl = document.getElementById("account-intro");
+const accountNameInputEl = document.getElementById("account-name-input");
+const accountPinInputEl = document.getElementById("account-pin-input");
+const accountMessageEl = document.getElementById("account-message");
 
 titleTaglineEl.textContent = `드래그해서 합이 10이 되는 사과를 지우세요. 제한 시간 ${GAME_DURATION_SECONDS}초, 총 ${CELL_COUNT}개의 사과`;
 applesLeftValueEl.textContent = String(CELL_COUNT);
 
-function getClientId() {
-  let id = localStorage.getItem(CLIENT_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(CLIENT_ID_KEY, id);
+function getAccount() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.name === "string" && typeof parsed.pin === "string") {
+      return parsed;
+    }
+  } catch {
+    // ignore
   }
-  return id;
+  return null;
 }
 
-function dailyPlayedKey(date) {
-  return `dailyPlayed:${date}`;
+function setAccount(name, pin) {
+  localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ name, pin }));
 }
 
-function hasDailyPlayed(date) {
-  return localStorage.getItem(dailyPlayedKey(date)) === "1";
+function clearAccount() {
+  localStorage.removeItem(ACCOUNT_KEY);
 }
 
-function markDailyPlayed(date) {
-  localStorage.setItem(dailyPlayedKey(date), "1");
+function dailyPlayedKey(date, name) {
+  return `dailyPlayed:${date}:${name}`;
 }
 
-function refreshDailyButtonState() {
-  const date = getDailySeedString();
-  if (hasDailyPlayed(date)) {
-    btnDailyEl.disabled = true;
-    dailyNoteEl.textContent = "오늘은 이미 도전하셨습니다. 내일 다시 도전해주세요!";
-    dailyNoteEl.classList.add("already-played");
-  } else {
-    btnDailyEl.disabled = false;
-    dailyNoteEl.textContent = "데일리 챌린지는 하루에 한 번만 도전할 수 있습니다.";
-    dailyNoteEl.classList.remove("already-played");
-  }
+function hasDailyPlayed(date, name) {
+  return localStorage.getItem(dailyPlayedKey(date, name)) === "1";
+}
+
+function markDailyPlayed(date, name) {
+  localStorage.setItem(dailyPlayedKey(date, name), "1");
 }
 
 async function fetchJson(url, options) {
@@ -90,6 +96,118 @@ async function fetchJson(url, options) {
   }
   return { ok: res.ok, status: res.status, data };
 }
+
+function refreshAccountStatus() {
+  const account = getAccount();
+  accountStatusEl.textContent = "";
+  if (account) {
+    const strong = document.createElement("strong");
+    strong.textContent = account.name;
+    const logoutLink = document.createElement("span");
+    logoutLink.className = "account-link";
+    logoutLink.textContent = "로그아웃";
+    logoutLink.addEventListener("click", () => {
+      clearAccount();
+      refreshAccountStatus();
+      refreshDailyButtonState();
+    });
+    accountStatusEl.append(strong, document.createTextNode("님으로 로그인됨 "), logoutLink);
+  } else {
+    const link = document.createElement("span");
+    link.className = "account-link";
+    link.textContent = "로그인 / 계정 만들기";
+    link.addEventListener("click", () => openAccountScreen());
+    accountStatusEl.appendChild(link);
+  }
+}
+
+function openAccountScreen() {
+  accountMessageEl.textContent = "";
+  accountMessageEl.className = "submit-message";
+  const account = getAccount();
+  accountNameInputEl.value = account ? account.name : "";
+  accountPinInputEl.value = "";
+  showScreen("account");
+}
+
+function refreshDailyButtonState() {
+  const account = getAccount();
+  if (!account) {
+    btnDailyEl.disabled = false;
+    dailyNoteEl.textContent = "데일리 챌린지는 로그인 후 하루에 한 번만 도전할 수 있습니다.";
+    dailyNoteEl.classList.remove("already-played");
+    return;
+  }
+  const date = getDailySeedString();
+  if (hasDailyPlayed(date, account.name)) {
+    btnDailyEl.disabled = true;
+    dailyNoteEl.textContent = "오늘은 이미 도전하셨습니다. 내일 다시 도전해주세요!";
+    dailyNoteEl.classList.add("already-played");
+  } else {
+    btnDailyEl.disabled = false;
+    dailyNoteEl.textContent = "데일리 챌린지는 하루에 한 번만 도전할 수 있습니다.";
+    dailyNoteEl.classList.remove("already-played");
+  }
+}
+
+const ACCOUNT_ERROR_MESSAGES = {
+  "name taken": "이미 사용 중인 이름입니다.",
+  "account not found": "등록되지 않은 이름입니다. 계정을 먼저 만들어주세요.",
+  "invalid pin": "이름 또는 PIN이 올바르지 않습니다.",
+  "account locked": "로그인 실패가 많아 잠시 잠겼습니다. 5분 후 다시 시도해주세요.",
+  "invalid name": "이름을 1~12자로 입력해주세요.",
+};
+
+async function submitAccountForm(url) {
+  const name = accountNameInputEl.value.trim();
+  const pin = accountPinInputEl.value.trim();
+  if (name.length === 0 || name.length > 12) {
+    accountMessageEl.textContent = "이름을 1~12자로 입력해주세요.";
+    accountMessageEl.className = "submit-message error";
+    return;
+  }
+  if (!PIN_PATTERN.test(pin)) {
+    accountMessageEl.textContent = "PIN은 숫자 4~8자리로 입력해주세요.";
+    accountMessageEl.className = "submit-message error";
+    return;
+  }
+
+  accountMessageEl.textContent = "처리 중...";
+  accountMessageEl.className = "submit-message";
+
+  try {
+    const { ok, data } = await fetchJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, pin }),
+    });
+    if (ok && data && data.ok) {
+      setAccount(data.name, pin);
+      refreshAccountStatus();
+      refreshDailyButtonState();
+      showScreen("title");
+      return;
+    }
+    accountMessageEl.textContent =
+      (data && ACCOUNT_ERROR_MESSAGES[data.error]) || "처리에 실패했습니다. 잠시 후 다시 시도해주세요.";
+    accountMessageEl.className = "submit-message error";
+  } catch {
+    accountMessageEl.textContent = "네트워크 오류가 발생했습니다.";
+    accountMessageEl.className = "submit-message error";
+  }
+}
+
+document.getElementById("btn-account-login").addEventListener("click", () => {
+  submitAccountForm("/api/account/login");
+});
+
+document.getElementById("btn-account-register").addEventListener("click", () => {
+  submitAccountForm("/api/account/register");
+});
+
+document.getElementById("btn-account-back").addEventListener("click", () => {
+  showScreen("title");
+});
 
 function renderLeaderboardEntries(listEl, entries, emptyMessage) {
   listEl.innerHTML = "";
@@ -159,7 +277,7 @@ document.getElementById("btn-leaderboard-back").addEventListener("click", () => 
 });
 
 for (const period of LEADERBOARD_PERIODS) {
-  document.getElementById(`tab-${period}`).addEventListener("click", (e) => {
+  document.getElementById(`tab-${period}`).addEventListener("click", () => {
     for (const p of LEADERBOARD_PERIODS) {
       document.getElementById(`tab-${p}`).classList.toggle("active", p === period);
     }
@@ -216,7 +334,6 @@ function updateSidePanel() {
   if (mode === "daily" && !toppedTodayScore && scoreTracker.score > todayTopScore) {
     toppedTodayScore = true;
     scoreValueEl.classList.remove("score-flash");
-    // restart animation
     requestAnimationFrame(() => scoreValueEl.classList.add("score-flash"));
   }
   return left;
@@ -250,8 +367,13 @@ function resetSubmitSection() {
   submitMessageEl.textContent = "";
   submitMessageEl.className = "submit-message";
   btnSubmitScoreEl.disabled = false;
-  nicknameInputEl.disabled = false;
-  nicknameInputEl.value = localStorage.getItem(NICKNAME_KEY) || "";
+  submitAccountLabelEl.textContent = "";
+  const account = getAccount();
+  if (account) {
+    const strong = document.createElement("strong");
+    strong.textContent = account.name;
+    submitAccountLabelEl.append(strong, document.createTextNode("님으로 등록됩니다"));
+  }
 }
 
 function endGame(reason) {
@@ -330,16 +452,50 @@ async function startGame(gameMode, seed) {
   );
 }
 
-btnDailyEl.addEventListener("click", () => {
+btnDailyEl.addEventListener("click", async () => {
+  const account = getAccount();
+  if (!account) {
+    accountIntroEl.textContent = "데일리 챌린지는 로그인 후 이용할 수 있습니다.";
+    openAccountScreen();
+    return;
+  }
+
   const date = getDailySeedString();
-  if (hasDailyPlayed(date)) {
+  if (hasDailyPlayed(date, account.name)) {
     refreshDailyButtonState();
     return;
   }
-  markDailyPlayed(date);
+
+  btnDailyEl.disabled = true;
+  try {
+    const { ok, data } = await fetchJson("/api/daily-start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin, date }),
+    });
+
+    if (ok && data && data.ok) {
+      markDailyPlayed(date, account.name);
+      startGame("daily", data.seed);
+      return;
+    }
+    if (data && data.error === "already played today") {
+      markDailyPlayed(date, account.name);
+    } else if (data && (data.error === "invalid pin" || data.error === "account not found")) {
+      clearAccount();
+      refreshAccountStatus();
+      accountIntroEl.textContent = "로그인 정보가 유효하지 않습니다. 다시 로그인해주세요.";
+      openAccountScreen();
+      return;
+    } else if (data && data.error === "account locked") {
+      alert("로그인 실패가 많아 잠시 계정이 잠겼습니다. 5분 후 다시 시도해주세요.");
+    } else {
+      alert("데일리 챌린지를 시작하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+  } catch {
+    alert("네트워크 오류로 시작하지 못했습니다.");
+  }
   refreshDailyButtonState();
-  const seed = hashStringToSeed(`daily:${date}`);
-  startGame("daily", seed);
 });
 
 document.getElementById("btn-practice").addEventListener("click", () => {
@@ -365,28 +521,22 @@ document.getElementById("btn-retry").addEventListener("click", () => {
 });
 
 btnSubmitScoreEl.addEventListener("click", async () => {
-  const nickname = nicknameInputEl.value.trim();
-  if (nickname.length === 0) {
-    submitMessageEl.textContent = "닉네임을 입력해주세요.";
-    submitMessageEl.className = "submit-message error";
-    return;
-  }
-  if (nickname.length > 12) {
-    submitMessageEl.textContent = "닉네임은 최대 12자입니다.";
+  const account = getAccount();
+  if (!account) {
+    submitMessageEl.textContent = "로그인 정보가 없습니다. 다시 로그인해주세요.";
     submitMessageEl.className = "submit-message error";
     return;
   }
 
   btnSubmitScoreEl.disabled = true;
-  nicknameInputEl.disabled = true;
   submitMessageEl.textContent = "등록 중...";
   submitMessageEl.className = "submit-message";
 
   const summary = scoreTracker.getSummary();
   const payload = {
+    name: account.name,
+    pin: account.pin,
     date: currentDate,
-    nickname,
-    clientId: getClientId(),
     score: summary.score,
     accuracy: summary.accuracy,
     maxRemoval: summary.maxRemovalCount,
@@ -401,44 +551,41 @@ btnSubmitScoreEl.addEventListener("click", async () => {
     });
 
     if (ok && data && data.ok) {
-      localStorage.setItem(NICKNAME_KEY, nickname);
       submitMessageEl.textContent = `등록 완료! 오늘 순위 #${data.rank} / ${data.total}명`;
       submitMessageEl.className = "submit-message success";
       scoreSubmitted = true;
       loadTop5();
-    } else if (status === 409 && data && data.error === "nickname taken") {
-      submitMessageEl.textContent = "이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.";
-      submitMessageEl.className = "submit-message error";
-      btnSubmitScoreEl.disabled = false;
-      nicknameInputEl.disabled = false;
     } else if (status === 409 && data && data.error === "already submitted today") {
       submitMessageEl.textContent = "오늘 랭킹에는 이미 등록하셨습니다.";
       submitMessageEl.className = "submit-message success";
       scoreSubmitted = true;
+    } else if (data && (data.error === "invalid pin" || data.error === "account not found")) {
+      submitMessageEl.textContent = "로그인 정보가 유효하지 않습니다. 다시 로그인해주세요.";
+      submitMessageEl.className = "submit-message error";
+      clearAccount();
+      refreshAccountStatus();
+      btnSubmitScoreEl.disabled = false;
     } else if (data && data.error === "stale date") {
       submitMessageEl.textContent = "날짜가 바뀌었습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.";
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
-      nicknameInputEl.disabled = false;
     } else if (data && data.error === "verification failed") {
       submitMessageEl.textContent = "기록을 검증하지 못했습니다. 새로고침 후 데일리 챌린지를 다시 플레이해주세요.";
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
-      nicknameInputEl.disabled = false;
     } else {
       const detail = data && data.error ? ` (${data.error})` : "";
       submitMessageEl.textContent = `등록에 실패했습니다${detail}. 잠시 후 다시 시도해주세요.`;
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
-      nicknameInputEl.disabled = false;
     }
   } catch {
     submitMessageEl.textContent = "네트워크 오류로 등록하지 못했습니다.";
     submitMessageEl.className = "submit-message error";
     btnSubmitScoreEl.disabled = false;
-    nicknameInputEl.disabled = false;
   }
 });
 
+refreshAccountStatus();
 refreshDailyButtonState();
 loadTop5();
