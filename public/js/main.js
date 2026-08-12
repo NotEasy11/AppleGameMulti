@@ -26,6 +26,10 @@ const resultScoreEl = document.getElementById("result-score");
 const resultAccuracyEl = document.getElementById("result-accuracy");
 const resultMaxRemovalEl = document.getElementById("result-max-removal");
 const resultReasonEl = document.getElementById("result-reason");
+const titleTaglineEl = document.getElementById("title-tagline");
+
+titleTaglineEl.textContent = `드래그해서 합이 10이 되는 사과를 지우세요. 제한 시간 ${GAME_DURATION_SECONDS}초, 총 ${CELL_COUNT}개의 사과`;
+applesLeftValueEl.textContent = String(CELL_COUNT);
 
 let removed = null;
 let values = null;

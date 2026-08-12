@@ -1,5 +1,5 @@
-export const ROWS = 11;
-export const COLS = 18;
+export const ROWS = 12;
+export const COLS = 19;
 export const CELL_COUNT = ROWS * COLS;
 export const CELL_SIZE = 44;
 export const TARGET_SUM = 10;

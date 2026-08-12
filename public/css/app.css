@@ -37,6 +37,12 @@ body {
   gap: 12px;
 }
 
+.daily-note {
+  margin: -8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 button {
   font-family: inherit;
   font-size: 16px;
@@ -154,6 +160,11 @@ button:active {
   width: calc(var(--cell-size) * var(--board-cols));
   height: calc(var(--cell-size) * var(--board-rows));
   touch-action: none;
+  background-color: var(--board-bg);
+  background-image:
+    linear-gradient(to right, var(--board-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--board-grid-line) 1px, transparent 1px);
+  background-size: var(--cell-size) var(--cell-size);
 }
 
 .apple {
