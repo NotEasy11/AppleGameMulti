@@ -3,61 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hello Score</title>
-<style>
-  :root {
-    color-scheme: light dark;
-  }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #f5f5f7;
-  }
-  .card {
-    text-align: center;
-    padding: 48px 64px;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  }
-  #score {
-    font-size: 64px;
-    font-weight: 700;
-    color: #1d1d1f;
-    margin: 0 0 24px;
-  }
-  button {
-    font-size: 20px;
-    font-weight: 600;
-    padding: 12px 32px;
-    border: none;
-    border-radius: 10px;
-    background: #0071e3;
-    color: #fff;
-    cursor: pointer;
-  }
-  button:active {
-    background: #005bb5;
-  }
-</style>
+<title>사과 게임 with people</title>
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-  <div class="card">
-    <p id="score">0</p>
-    <button id="helloBtn">Hello</button>
-  </div>
 
-  <script>
-    let score = 0;
-    const scoreEl = document.getElementById('score');
-    document.getElementById('helloBtn').addEventListener('click', () => {
-      score += 1;
-      scoreEl.textContent = score;
-    });
-  </script>
+<section id="screen-title" class="screen active">
+  <h1>🍎 사과 게임 with people</h1>
+  <p>드래그해서 합이 10이 되는 사과를 지우세요. 120초, 170개의 사과.</p>
+  <div class="mode-buttons">
+    <button id="btn-daily">데일리 챌린지</button>
+    <button id="btn-practice" class="secondary">자유 연습</button>
+  </div>
+</section>
+
+<section id="screen-game" class="screen">
+  <div class="timer-bar-wrap"><div id="timer-bar"></div></div>
+  <div id="timer-label">남은 시간 120초</div>
+  <div class="game-layout">
+    <div class="side-panel">
+      <h3>점수</h3>
+      <div id="score-value">0</div>
+      <h3>남은 사과</h3>
+      <div id="apples-left-value">170</div>
+      <button id="btn-quit" class="secondary" style="margin-top:24px;width:100%;">포기</button>
+    </div>
+
+    <div style="position:relative;">
+      <div id="board" class="board"></div>
+      <div id="countdown-overlay" class="countdown-overlay"></div>
+    </div>
+
+    <div class="side-panel">
+      <h3>오늘의 TOP5</h3>
+      <ul id="top5-list">
+        <li>랭킹은 다음 업데이트에서<br>제공됩니다</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="screen-result" class="screen">
+  <div class="result-card">
+    <div id="result-reason">시간 종료</div>
+    <div class="big-score" id="result-score">0</div>
+    <div class="result-stats">
+      <div id="result-accuracy">정확도 0% (0/0)</div>
+      <div id="result-max-removal">최대 1회 제거 0개</div>
+    </div>
+    <button id="btn-retry">다시하기</button>
+  </div>
+</section>
+
+<script type="module" src="/js/main.js"></script>
 </body>
 </html>
