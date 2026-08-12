@@ -12,7 +12,7 @@
   --box-red: rgba(255, 59, 48, 0.25);
   --box-red-border: rgba(255, 59, 48, 0.9);
 
-  --cell-size: 44px;
+  --cell-size: 40px;
   --board-cols: 17;
   --board-rows: 10;
 
