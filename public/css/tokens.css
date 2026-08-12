@@ -13,8 +13,8 @@
   --box-red-border: rgba(255, 59, 48, 0.9);
 
   --cell-size: 44px;
-  --board-cols: 17;
-  --board-rows: 10;
+  --board-cols: 18;
+  --board-rows: 11;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
