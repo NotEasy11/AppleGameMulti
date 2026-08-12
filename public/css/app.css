@@ -128,7 +128,12 @@ button:active {
 .board-hitzone {
   position: relative;
   display: inline-block;
-  padding: 24px;
+}
+
+.board-hit-overlay {
+  position: absolute;
+  inset: -24px;
+  z-index: 5;
   touch-action: none;
 }
 

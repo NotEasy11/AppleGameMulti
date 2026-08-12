@@ -16,7 +16,7 @@ function showScreen(name) {
 }
 
 const boardEl = document.getElementById("board");
-const boardHitzoneEl = document.getElementById("board-hitzone");
+const boardHitOverlayEl = document.getElementById("board-hit-overlay");
 const countdownOverlay = document.getElementById("countdown-overlay");
 const scoreValueEl = document.getElementById("score-value");
 const applesLeftValueEl = document.getElementById("apples-left-value");
@@ -132,7 +132,7 @@ function startGame(seed) {
       countdownOverlay.classList.remove("active");
       dragController = createDragController({
         boardEl,
-        frameEl: boardHitzoneEl,
+        frameEl: boardHitOverlayEl,
         cellEls,
         centers,
         values,
