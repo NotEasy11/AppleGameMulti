@@ -16,6 +16,7 @@ function showScreen(name) {
 }
 
 const boardEl = document.getElementById("board");
+const boardFrameEl = document.getElementById("board-frame");
 const countdownOverlay = document.getElementById("countdown-overlay");
 const scoreValueEl = document.getElementById("score-value");
 const applesLeftValueEl = document.getElementById("apples-left-value");
@@ -131,6 +132,7 @@ function startGame(seed) {
       countdownOverlay.classList.remove("active");
       dragController = createDragController({
         boardEl,
+        frameEl: boardFrameEl,
         cellEls,
         centers,
         values,

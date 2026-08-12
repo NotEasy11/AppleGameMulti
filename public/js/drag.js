@@ -1,6 +1,8 @@
 import { TARGET_SUM } from "./board.js";
 
-export function createDragController({ boardEl, cellEls, centers, values, isRemoved, onCommit }) {
+export function createDragController({ boardEl, frameEl, cellEls, centers, values, isRemoved, onCommit }) {
+  const eventEl = frameEl || boardEl;
+
   const box = document.createElement("div");
   box.className = "selection-box";
   boardEl.appendChild(box);
@@ -79,7 +81,7 @@ export function createDragController({ boardEl, cellEls, centers, values, isRemo
     const p = boardPoint(e);
     startX = p.x;
     startY = p.y;
-    boardEl.setPointerCapture(e.pointerId);
+    eventEl.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e) {
@@ -96,7 +98,7 @@ export function createDragController({ boardEl, cellEls, centers, values, isRemo
 
   function onPointerUp(e) {
     if (!dragging) return;
-    boardEl.releasePointerCapture(e.pointerId);
+    eventEl.releasePointerCapture(e.pointerId);
     if (cancelled) {
       endDrag();
       return;
@@ -130,18 +132,18 @@ export function createDragController({ boardEl, cellEls, centers, values, isRemo
     }
   }
 
-  boardEl.addEventListener("pointerdown", onPointerDown);
-  boardEl.addEventListener("pointermove", onPointerMove);
-  boardEl.addEventListener("pointerup", onPointerUp);
-  boardEl.addEventListener("contextmenu", onContextMenu);
+  eventEl.addEventListener("pointerdown", onPointerDown);
+  eventEl.addEventListener("pointermove", onPointerMove);
+  eventEl.addEventListener("pointerup", onPointerUp);
+  eventEl.addEventListener("contextmenu", onContextMenu);
   window.addEventListener("keydown", onKeyDown);
 
   return {
     destroy() {
-      boardEl.removeEventListener("pointerdown", onPointerDown);
-      boardEl.removeEventListener("pointermove", onPointerMove);
-      boardEl.removeEventListener("pointerup", onPointerUp);
-      boardEl.removeEventListener("contextmenu", onContextMenu);
+      eventEl.removeEventListener("pointerdown", onPointerDown);
+      eventEl.removeEventListener("pointermove", onPointerMove);
+      eventEl.removeEventListener("pointerup", onPointerUp);
+      eventEl.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("keydown", onKeyDown);
     },
   };
