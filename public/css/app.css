@@ -43,6 +43,20 @@ body {
   color: var(--color-text-muted);
 }
 
+.daily-note.already-played {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.link-button {
+  background: none;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
 button {
   font-family: inherit;
   font-size: 16px;
@@ -53,6 +67,12 @@ button {
   background: var(--color-accent);
   color: #fff;
   cursor: pointer;
+}
+
+button:disabled {
+  background: #e5e5ea;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 button.secondary {
@@ -92,6 +112,22 @@ button:active {
   font-size: 40px;
   font-weight: 700;
   line-height: 1;
+  transition: color 0.15s ease;
+}
+
+#score-value.score-flash {
+  animation: score-flash-anim 0.6s ease;
+}
+
+@keyframes score-flash-anim {
+  0%, 100% { color: var(--color-text); }
+  30% { color: var(--color-accent); transform: scale(1.15); }
+}
+
+#today-top-score {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
 }
 
 #apples-left-value {
@@ -218,12 +254,41 @@ button:active {
   border-color: var(--box-red-border);
 }
 
-#top5-list {
+.top5-list {
   list-style: none;
   margin: 0;
   padding: 0;
   font-size: 13px;
   line-height: 1.8;
+  color: var(--color-text-muted);
+}
+
+.top5-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.top5-list li .rank {
+  color: var(--color-text-muted);
+  width: 18px;
+}
+
+.top5-list li .nickname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.top5-list li .score {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.top5-empty {
   color: var(--color-text-muted);
 }
 
@@ -269,4 +334,106 @@ button:active {
   font-size: 14px;
   color: var(--color-text-muted);
   margin-bottom: 20px;
+}
+
+.submit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+#nickname-input {
+  font-family: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 1px solid #d1d1d6;
+  border-radius: 8px;
+}
+
+.submit-message {
+  font-size: 13px;
+  min-height: 18px;
+}
+
+.submit-message.success {
+  color: #1a9d4d;
+  font-weight: 600;
+}
+
+.submit-message.error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+/* ---------- Leaderboard screen ---------- */
+
+#screen-leaderboard h2 {
+  margin: 0;
+}
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-button {
+  background: #e5e5ea;
+  color: var(--color-text);
+  padding: 8px 18px;
+  font-size: 14px;
+}
+
+.tab-button.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 360px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.leaderboard-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.leaderboard-list li:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-list .rank {
+  width: 28px;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.leaderboard-list .nickname {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list .score {
+  font-weight: 700;
+}
+
+.leaderboard-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--color-text-muted);
 }
