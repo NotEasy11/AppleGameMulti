@@ -188,7 +188,7 @@ button:active {
   z-index: 1;
   color: #fff;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .apple.selected::before {
