@@ -181,6 +181,7 @@ let gameStartedAt = 0;
 let inputLog = [];
 let todayTopScore = 0;
 let toppedTodayScore = false;
+let scoreSubmitted = false;
 
 function buildBoardDom(boardValues) {
   boardEl.innerHTML = "";
@@ -282,6 +283,7 @@ async function startGame(gameMode, seed) {
   inputLog = [];
   toppedTodayScore = false;
   todayTopScore = 0;
+  scoreSubmitted = false;
 
   if (mode === "daily") {
     currentDate = getDailySeedString();
@@ -352,6 +354,12 @@ document.getElementById("btn-quit").addEventListener("click", () => {
 });
 
 document.getElementById("btn-retry").addEventListener("click", () => {
+  if (mode === "daily" && !scoreSubmitted) {
+    const leave = confirm(
+      "정말 랭킹 등록을 하지 않으시겠습니까? 데일리 챌린지는 오늘 하루동안은 다시 플레이가 불가능합니다."
+    );
+    if (!leave) return;
+  }
   refreshDailyButtonState();
   showScreen("title");
 });
@@ -396,6 +404,7 @@ btnSubmitScoreEl.addEventListener("click", async () => {
       localStorage.setItem(NICKNAME_KEY, nickname);
       submitMessageEl.textContent = `등록 완료! 오늘 순위 #${data.rank} / ${data.total}명`;
       submitMessageEl.className = "submit-message success";
+      scoreSubmitted = true;
       loadTop5();
     } else if (status === 409 && data && data.error === "nickname taken") {
       submitMessageEl.textContent = "이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.";
@@ -405,6 +414,7 @@ btnSubmitScoreEl.addEventListener("click", async () => {
     } else if (status === 409 && data && data.error === "already submitted today") {
       submitMessageEl.textContent = "오늘 랭킹에는 이미 등록하셨습니다.";
       submitMessageEl.className = "submit-message success";
+      scoreSubmitted = true;
     } else if (data && data.error === "stale date") {
       submitMessageEl.textContent = "날짜가 바뀌었습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.";
       submitMessageEl.className = "submit-message error";
