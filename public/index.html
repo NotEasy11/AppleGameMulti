@@ -17,7 +17,29 @@
     <button id="btn-practice" class="secondary">자유 연습</button>
   </div>
   <p id="daily-note" class="daily-note">데일리 챌린지는 하루에 한 번만 도전할 수 있습니다.</p>
-  <button id="btn-view-leaderboard" class="link-button">랭킹 보기</button>
+  <div class="link-button-row">
+    <button id="btn-view-rules" class="link-button">게임 방법</button>
+    <button id="btn-view-leaderboard" class="link-button">랭킹 보기</button>
+  </div>
+</section>
+
+<section id="screen-rules" class="screen">
+  <h2>게임 방법</h2>
+  <div class="rules-card">
+    <ol class="rules-list">
+      <li>보드는 <strong>1~9 숫자가 적힌 사과</strong>로 채워져 있습니다.</li>
+      <li>마우스로 <strong>드래그</strong>해서 사각형 영역을 만드세요. 사과의 중심점이 사각형 안에 들어오면 선택됩니다.</li>
+      <li>선택한 사과들의 <strong>합이 10</strong>이면 사각형이 <span class="rule-swatch rule-swatch-red"></span>빨간색으로 바뀝니다.</li>
+      <li>빨간색일 때 마우스를 놓으면 선택된 사과가 모두 <strong>제거</strong>되고 점수가 올라갑니다.</li>
+      <li>합이 10이 아니면(<span class="rule-swatch rule-swatch-grey"></span>회색) 그냥 사각형만 사라집니다. <strong>페널티는 없습니다.</strong></li>
+      <li>드래그 중 <strong>ESC 또는 우클릭</strong>을 누르면 드래그를 취소할 수 있습니다.</li>
+      <li>제한 시간은 <strong>120초</strong>이며, 점수는 <strong>제거한 사과의 개수</strong>입니다.</li>
+      <li>제거된 칸은 다시 채워지지 않으니, 시간이 지날수록 남은 사과가 흩어져 더 어려워집니다.</li>
+      <li><strong>데일리 챌린지</strong>는 모든 플레이어가 같은 날 같은 보드를 풉니다. 실력으로 순위가 결정되며, 하루에 한 번만 도전할 수 있습니다.</li>
+      <li><strong>자유 연습</strong>은 매번 랜덤한 보드로 무제한 플레이할 수 있지만 랭킹에는 등록되지 않습니다.</li>
+    </ol>
+  </div>
+  <button id="btn-rules-back" class="secondary">돌아가기</button>
 </section>
 
 <section id="screen-leaderboard" class="screen">

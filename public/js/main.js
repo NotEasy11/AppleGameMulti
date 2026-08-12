@@ -12,6 +12,7 @@ const screens = {
   game: document.getElementById("screen-game"),
   result: document.getElementById("screen-result"),
   leaderboard: document.getElementById("screen-leaderboard"),
+  rules: document.getElementById("screen-rules"),
 };
 
 function showScreen(name) {
@@ -143,6 +144,14 @@ async function loadLeaderboardTab(period) {
 document.getElementById("btn-view-leaderboard").addEventListener("click", () => {
   showScreen("leaderboard");
   loadLeaderboardTab("daily");
+});
+
+document.getElementById("btn-view-rules").addEventListener("click", () => {
+  showScreen("rules");
+});
+
+document.getElementById("btn-rules-back").addEventListener("click", () => {
+  showScreen("title");
 });
 
 document.getElementById("btn-leaderboard-back").addEventListener("click", () => {
