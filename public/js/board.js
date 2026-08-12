@@ -25,7 +25,12 @@ export function hashStringToSeed(str) {
 }
 
 export function getDailySeedString(date = new Date()) {
-  const kst = new Date(date.getTime() + (9 * 60 - date.getTimezoneOffset()) * 60000);
+  // date.getTime() is always a timezone-agnostic UTC epoch, so a flat
+  // +9h shift gives the correct KST calendar date regardless of the
+  // caller's own local timezone. (Do NOT factor in
+  // date.getTimezoneOffset() here - that double-counts the caller's
+  // local offset and produces a wrong date for any non-UTC caller.)
+  const kst = new Date(date.getTime() + 9 * 60 * 60000);
   return kst.toISOString().slice(0, 10);
 }
 

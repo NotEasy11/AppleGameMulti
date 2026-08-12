@@ -396,8 +396,19 @@ btnSubmitScoreEl.addEventListener("click", async () => {
     } else if (status === 409 && data && data.error === "already submitted today") {
       submitMessageEl.textContent = "오늘 랭킹에는 이미 등록하셨습니다.";
       submitMessageEl.className = "submit-message success";
+    } else if (data && data.error === "stale date") {
+      submitMessageEl.textContent = "날짜가 바뀌었습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.";
+      submitMessageEl.className = "submit-message error";
+      btnSubmitScoreEl.disabled = false;
+      nicknameInputEl.disabled = false;
+    } else if (data && data.error === "verification failed") {
+      submitMessageEl.textContent = "기록을 검증하지 못했습니다. 새로고침 후 데일리 챌린지를 다시 플레이해주세요.";
+      submitMessageEl.className = "submit-message error";
+      btnSubmitScoreEl.disabled = false;
+      nicknameInputEl.disabled = false;
     } else {
-      submitMessageEl.textContent = "등록에 실패했습니다. 잠시 후 다시 시도해주세요.";
+      const detail = data && data.error ? ` (${data.error})` : "";
+      submitMessageEl.textContent = `등록에 실패했습니다${detail}. 잠시 후 다시 시도해주세요.`;
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
       nicknameInputEl.disabled = false;
