@@ -31,7 +31,7 @@ body {
   display: grid;
   grid-template-columns: auto 280px;
   gap: 32px;
-  align-items: start;
+  align-items: center;
 }
 
 .title-main {
