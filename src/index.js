@@ -95,7 +95,7 @@ async function verifyAccount(env, name, pin) {
   }
 
   const row = await env.DB.prepare(
-    "SELECT pin_hash, pin_salt, failed_attempts, locked_until FROM accounts WHERE name = ?"
+    "SELECT pin_hash, pin_salt, failed_attempts, locked_until, is_admin FROM accounts WHERE name = ?"
   )
     .bind(trimmed)
     .first();
@@ -121,7 +121,7 @@ async function verifyAccount(env, name, pin) {
       .run();
   }
 
-  return { ok: true, name: trimmed };
+  return { ok: true, name: trimmed, isAdmin: !!row.is_admin };
 }
 
 async function handleRegister(request, env) {
@@ -144,7 +144,7 @@ async function handleRegister(request, env) {
     .bind(trimmed, hash, salt)
     .run();
 
-  return jsonResponse({ ok: true, name: trimmed });
+  return jsonResponse({ ok: true, name: trimmed, isAdmin: false });
 }
 
 async function handleLogin(request, env) {
@@ -152,7 +152,47 @@ async function handleLogin(request, env) {
   if (!body) return jsonResponse({ error: "invalid json" }, 400);
   const auth = await verifyAccount(env, body.name, body.pin);
   if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
-  return jsonResponse({ ok: true, name: auth.name });
+  return jsonResponse({ ok: true, name: auth.name, isAdmin: auth.isAdmin });
+}
+
+async function handleAdminClearScores(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  if (!auth.isAdmin) return jsonResponse({ error: "forbidden" }, 403);
+
+  const { date } = body;
+  if (date !== undefined && date !== null && date !== "") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonResponse({ error: "invalid date" }, 400);
+    await env.DB.prepare("DELETE FROM scores WHERE date = ?").bind(date).run();
+    return jsonResponse({ ok: true, cleared: date });
+  }
+
+  await env.DB.prepare("DELETE FROM scores").run();
+  return jsonResponse({ ok: true, cleared: "all" });
+}
+
+async function handleAdminResetDaily(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  if (!auth.isAdmin) return jsonResponse({ error: "forbidden" }, 403);
+
+  const targetName = validateName(body.targetName);
+  if (!targetName) return jsonResponse({ error: "invalid targetName" }, 400);
+  const date =
+    typeof body.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : getDailySeedString();
+
+  await env.DB.prepare("DELETE FROM daily_plays WHERE date = ? AND account_name = ?")
+    .bind(date, targetName)
+    .run();
+  await env.DB.prepare("DELETE FROM scores WHERE date = ? AND account_name = ?")
+    .bind(date, targetName)
+    .run();
+
+  return jsonResponse({ ok: true, date, targetName });
 }
 
 async function handleDailyStart(request, env) {
@@ -319,6 +359,12 @@ export default {
     }
     if (url.pathname === "/api/leaderboard" && request.method === "GET") {
       return handleLeaderboard(request, env);
+    }
+    if (url.pathname === "/api/admin/clear-scores" && request.method === "POST") {
+      return handleAdminClearScores(request, env);
+    }
+    if (url.pathname === "/api/admin/reset-daily" && request.method === "POST") {
+      return handleAdminResetDaily(request, env);
     }
     return env.ASSETS.fetch(request);
   },

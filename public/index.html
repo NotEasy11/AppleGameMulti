@@ -39,6 +39,25 @@
   <button id="btn-account-back" class="secondary">돌아가기</button>
 </section>
 
+<section id="screen-admin" class="screen">
+  <h2>관리자</h2>
+  <div class="admin-card">
+    <div class="admin-block">
+      <h3>랭킹 초기화</h3>
+      <input id="admin-clear-date-input" type="text" placeholder="날짜 YYYY-MM-DD (비우면 전체 초기화)">
+      <button id="btn-admin-clear-scores" class="danger">초기화</button>
+    </div>
+    <div class="admin-block">
+      <h3>데일리 플레이 리셋</h3>
+      <input id="admin-reset-name-input" type="text" maxlength="12" placeholder="대상 계정 이름">
+      <input id="admin-reset-date-input" type="text" placeholder="날짜 YYYY-MM-DD (비우면 오늘)">
+      <button id="btn-admin-reset-daily">리셋</button>
+    </div>
+    <div id="admin-message" class="submit-message"></div>
+  </div>
+  <button id="btn-admin-back" class="secondary">돌아가기</button>
+</section>
+
 <section id="screen-rules" class="screen">
   <h2>게임 방법</h2>
   <div class="rules-card">

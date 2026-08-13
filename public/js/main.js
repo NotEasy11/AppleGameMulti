@@ -10,6 +10,7 @@ const PIN_PATTERN = /^\d{4,8}$/;
 const screens = {
   title: document.getElementById("screen-title"),
   account: document.getElementById("screen-account"),
+  admin: document.getElementById("screen-admin"),
   game: document.getElementById("screen-game"),
   result: document.getElementById("screen-result"),
   leaderboard: document.getElementById("screen-leaderboard"),
@@ -48,6 +49,10 @@ const accountIntroEl = document.getElementById("account-intro");
 const accountNameInputEl = document.getElementById("account-name-input");
 const accountPinInputEl = document.getElementById("account-pin-input");
 const accountMessageEl = document.getElementById("account-message");
+const adminClearDateInputEl = document.getElementById("admin-clear-date-input");
+const adminResetNameInputEl = document.getElementById("admin-reset-name-input");
+const adminResetDateInputEl = document.getElementById("admin-reset-date-input");
+const adminMessageEl = document.getElementById("admin-message");
 
 titleTaglineEl.textContent = `드래그해서 합이 10이 되는 사과를 지우세요. 제한 시간 ${GAME_DURATION_SECONDS}초, 총 ${CELL_COUNT}개의 사과`;
 applesLeftValueEl.textContent = String(CELL_COUNT);
@@ -66,8 +71,8 @@ function getAccount() {
   return null;
 }
 
-function setAccount(name, pin) {
-  localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ name, pin }));
+function setAccount(name, pin, isAdmin) {
+  localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ name, pin, isAdmin: !!isAdmin }));
 }
 
 function clearAccount() {
@@ -112,6 +117,13 @@ function refreshAccountStatus() {
       refreshDailyButtonState();
     });
     accountStatusEl.append(strong, document.createTextNode("님으로 로그인됨 "), logoutLink);
+    if (account.isAdmin) {
+      const adminLink = document.createElement("span");
+      adminLink.className = "account-link";
+      adminLink.textContent = " · 관리자";
+      adminLink.addEventListener("click", () => openAdminScreen());
+      accountStatusEl.appendChild(adminLink);
+    }
   } else {
     const link = document.createElement("span");
     link.className = "account-link";
@@ -182,7 +194,7 @@ async function submitAccountForm(url) {
       body: JSON.stringify({ name, pin }),
     });
     if (ok && data && data.ok) {
-      setAccount(data.name, pin);
+      setAccount(data.name, pin, data.isAdmin);
       refreshAccountStatus();
       refreshDailyButtonState();
       showScreen("title");
@@ -207,6 +219,82 @@ document.getElementById("btn-account-register").addEventListener("click", () => 
 
 document.getElementById("btn-account-back").addEventListener("click", () => {
   showScreen("title");
+});
+
+function openAdminScreen() {
+  const account = getAccount();
+  if (!account || !account.isAdmin) return;
+  adminMessageEl.textContent = "";
+  adminMessageEl.className = "submit-message";
+  adminClearDateInputEl.value = "";
+  adminResetNameInputEl.value = "";
+  adminResetDateInputEl.value = "";
+  showScreen("admin");
+}
+
+document.getElementById("btn-admin-back").addEventListener("click", () => {
+  showScreen("title");
+});
+
+document.getElementById("btn-admin-clear-scores").addEventListener("click", async () => {
+  const account = getAccount();
+  if (!account) return;
+  const date = adminClearDateInputEl.value.trim();
+  const label = date ? `${date} 기록만` : "전체 기록을";
+  if (!confirm(`정말 ${label} 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+
+  adminMessageEl.textContent = "처리 중...";
+  adminMessageEl.className = "submit-message";
+  try {
+    const { ok, data } = await fetchJson("/api/admin/clear-scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin, date: date || undefined }),
+    });
+    if (ok && data && data.ok) {
+      adminMessageEl.textContent = `초기화 완료 (${data.cleared === "all" ? "전체" : data.cleared})`;
+      adminMessageEl.className = "submit-message success";
+      loadTop5();
+    } else {
+      adminMessageEl.textContent = `실패: ${(data && data.error) || "알 수 없는 오류"}`;
+      adminMessageEl.className = "submit-message error";
+    }
+  } catch {
+    adminMessageEl.textContent = "네트워크 오류가 발생했습니다.";
+    adminMessageEl.className = "submit-message error";
+  }
+});
+
+document.getElementById("btn-admin-reset-daily").addEventListener("click", async () => {
+  const account = getAccount();
+  if (!account) return;
+  const targetName = adminResetNameInputEl.value.trim();
+  if (targetName.length === 0) {
+    adminMessageEl.textContent = "대상 계정 이름을 입력해주세요.";
+    adminMessageEl.className = "submit-message error";
+    return;
+  }
+  const date = adminResetDateInputEl.value.trim();
+
+  adminMessageEl.textContent = "처리 중...";
+  adminMessageEl.className = "submit-message";
+  try {
+    const { ok, data } = await fetchJson("/api/admin/reset-daily", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin, targetName, date: date || undefined }),
+    });
+    if (ok && data && data.ok) {
+      adminMessageEl.textContent = `${data.targetName}님의 ${data.date} 플레이 기록을 초기화했습니다.`;
+      adminMessageEl.className = "submit-message success";
+    } else {
+      adminMessageEl.textContent = `실패: ${(data && data.error) || "알 수 없는 오류"}`;
+      adminMessageEl.className = "submit-message error";
+    }
+  } catch {
+    adminMessageEl.textContent = "네트워크 오류가 발생했습니다.";
+    adminMessageEl.className = "submit-message error";
+  }
 });
 
 function formatShortDate(dateStr) {
