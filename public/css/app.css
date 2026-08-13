@@ -27,21 +27,11 @@ body {
 
 /* ---------- Title screen ---------- */
 
-.title-layout {
-  display: grid;
-  grid-template-columns: auto 280px;
-  gap: 32px;
-  align-items: center;
-}
-
-.title-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
 .title-ranking-panel {
+  position: fixed;
+  top: 50%;
+  right: 60px;
+  transform: translateY(-50%);
   background: #fff;
   border-radius: 12px;
   padding: 16px;
