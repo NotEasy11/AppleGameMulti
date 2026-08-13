@@ -21,6 +21,9 @@ function showScreen(name) {
   for (const key of Object.keys(screens)) {
     screens[key].classList.toggle("active", key === name);
   }
+  if (name === "title") {
+    loadTitleRanking();
+  }
 }
 
 const boardEl = document.getElementById("board");
@@ -44,6 +47,7 @@ const submitAccountLabelEl = document.getElementById("submit-account-label");
 const btnSubmitScoreEl = document.getElementById("btn-submit-score");
 const submitMessageEl = document.getElementById("submit-message");
 const leaderboardListEl = document.getElementById("leaderboard-list");
+const titleRankingListEl = document.getElementById("title-ranking-list");
 const accountStatusEl = document.getElementById("account-status");
 const accountIntroEl = document.getElementById("account-intro");
 const accountNameInputEl = document.getElementById("account-name-input");
@@ -375,6 +379,16 @@ async function loadTop5() {
     renderLeaderboardEntries(top5ListEl, [], "랭킹을 불러올 수 없습니다");
     todayTopScoreEl.textContent = "-";
     return 0;
+  }
+}
+
+async function loadTitleRanking() {
+  try {
+    const { ok, data } = await fetchJson("/api/leaderboard?period=daily&limit=10");
+    if (!ok || !data) throw new Error("failed");
+    renderLeaderboardEntries(titleRankingListEl, data.entries, "아직 등록된 기록이 없습니다");
+  } catch {
+    renderLeaderboardEntries(titleRankingListEl, [], "랭킹을 불러올 수 없습니다");
   }
 }
 
@@ -715,3 +729,4 @@ btnSubmitScoreEl.addEventListener("click", async () => {
 refreshAccountStatus();
 syncDailyStatus();
 loadTop5();
+loadTitleRanking();
