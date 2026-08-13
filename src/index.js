@@ -173,13 +173,6 @@ async function handleDailyStart(request, env) {
     .first();
   if (existingByAccount) return jsonResponse({ error: "already played today" }, 409);
 
-  if (ip !== "unknown") {
-    const existingByIp = await env.DB.prepare("SELECT 1 FROM daily_plays WHERE date = ? AND ip = ?")
-      .bind(today, ip)
-      .first();
-    if (existingByIp) return jsonResponse({ error: "already played today" }, 409);
-  }
-
   try {
     await env.DB.prepare("INSERT INTO daily_plays (date, account_name, ip) VALUES (?, ?, ?)")
       .bind(today, auth.name, ip)
