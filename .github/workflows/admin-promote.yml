@@ -10,9 +10,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: List all account names
+      - name: Promote account to admin
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 execute apple-game-db --remote --command "SELECT name, is_admin, created_at FROM accounts ORDER BY created_at DESC;"
+          command: d1 execute apple-game-db --remote --command "UPDATE accounts SET is_admin=1 WHERE name='백승오, the 제작자';"
+
+      - name: Verify
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute apple-game-db --remote --command "SELECT name, is_admin FROM accounts WHERE name='백승오, the 제작자';"
