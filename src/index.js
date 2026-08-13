@@ -227,6 +227,22 @@ async function handleDailyStart(request, env) {
   return jsonResponse({ ok: true, date: today, seed: dailySeedFor(today) });
 }
 
+async function handleDailyStatus(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+  const today = getDailySeedString();
+  const existingByAccount = await env.DB.prepare(
+    "SELECT 1 FROM daily_plays WHERE date = ? AND account_name = ?"
+  )
+    .bind(today, auth.name)
+    .first();
+
+  return jsonResponse({ ok: true, date: today, alreadyPlayed: !!existingByAccount });
+}
+
 async function handleDailySeed(request) {
   const url = new URL(request.url);
   const date = url.searchParams.get("date") || getDailySeedString();
@@ -350,6 +366,9 @@ export default {
     }
     if (url.pathname === "/api/daily-start" && request.method === "POST") {
       return handleDailyStart(request, env);
+    }
+    if (url.pathname === "/api/daily-status" && request.method === "POST") {
+      return handleDailyStatus(request, env);
     }
     if (url.pathname === "/api/daily-seed" && request.method === "GET") {
       return handleDailySeed(request);

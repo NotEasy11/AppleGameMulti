@@ -91,6 +91,10 @@ function markDailyPlayed(date, name) {
   localStorage.setItem(dailyPlayedKey(date, name), "1");
 }
 
+function clearDailyPlayed(date, name) {
+  localStorage.removeItem(dailyPlayedKey(date, name));
+}
+
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   let data = null;
@@ -162,6 +166,31 @@ function refreshDailyButtonState() {
   }
 }
 
+async function syncDailyStatus() {
+  const account = getAccount();
+  if (!account) {
+    refreshDailyButtonState();
+    return;
+  }
+  try {
+    const { ok, data } = await fetchJson("/api/daily-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin }),
+    });
+    if (ok && data && data.ok) {
+      if (data.alreadyPlayed) {
+        markDailyPlayed(data.date, account.name);
+      } else {
+        clearDailyPlayed(data.date, account.name);
+      }
+    }
+  } catch {
+    // network failure: fall back to whatever local cache already has
+  }
+  refreshDailyButtonState();
+}
+
 const ACCOUNT_ERROR_MESSAGES = {
   "name taken": "이미 사용 중인 이름입니다.",
   "account not found": "등록되지 않은 이름입니다. 계정을 먼저 만들어주세요.",
@@ -196,7 +225,7 @@ async function submitAccountForm(url) {
     if (ok && data && data.ok) {
       setAccount(data.name, pin, data.isAdmin);
       refreshAccountStatus();
-      refreshDailyButtonState();
+      syncDailyStatus();
       showScreen("title");
       return;
     }
@@ -613,7 +642,7 @@ document.getElementById("btn-retry").addEventListener("click", () => {
     );
     if (!leave) return;
   }
-  refreshDailyButtonState();
+  syncDailyStatus();
   showScreen("title");
 });
 
@@ -684,5 +713,5 @@ btnSubmitScoreEl.addEventListener("click", async () => {
 });
 
 refreshAccountStatus();
-refreshDailyButtonState();
+syncDailyStatus();
 loadTop5();
