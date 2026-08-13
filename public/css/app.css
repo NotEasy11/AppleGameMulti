@@ -30,7 +30,7 @@ body {
 .title-ranking-panel {
   position: fixed;
   top: 50%;
-  right: 60px;
+  right: 210px;
   transform: translateY(-50%);
   background: #fff;
   border-radius: 12px;
