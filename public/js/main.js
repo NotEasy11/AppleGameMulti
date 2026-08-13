@@ -152,7 +152,7 @@ function refreshDailyButtonState() {
   }
   const date = getDailySeedString();
   if (hasDailyPlayed(date, account.name)) {
-    btnDailyEl.disabled = true;
+    btnDailyEl.disabled = false;
     dailyNoteEl.textContent = "오늘은 이미 도전하셨습니다. 내일 다시 도전해주세요!";
     dailyNoteEl.classList.add("already-played");
   } else {
@@ -562,10 +562,6 @@ btnDailyEl.addEventListener("click", async () => {
   }
 
   const date = getDailySeedString();
-  if (hasDailyPlayed(date, account.name)) {
-    refreshDailyButtonState();
-    return;
-  }
 
   btnDailyEl.disabled = true;
   try {
