@@ -209,7 +209,14 @@ document.getElementById("btn-account-back").addEventListener("click", () => {
   showScreen("title");
 });
 
-function renderLeaderboardEntries(listEl, entries, emptyMessage) {
+function formatShortDate(dateStr) {
+  if (typeof dateStr !== "string") return "";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+}
+
+function renderLeaderboardEntries(listEl, entries, emptyMessage, showDate) {
   listEl.innerHTML = "";
   if (!entries || entries.length === 0) {
     const li = document.createElement("li");
@@ -230,6 +237,12 @@ function renderLeaderboardEntries(listEl, entries, emptyMessage) {
     score.className = "score";
     score.textContent = String(entry.score);
     li.append(rank, nickname, score);
+    if (showDate && entry.date) {
+      const date = document.createElement("span");
+      date.className = "date";
+      date.textContent = formatShortDate(entry.date);
+      li.appendChild(date);
+    }
     listEl.appendChild(li);
   });
 }
@@ -253,9 +266,9 @@ async function loadLeaderboardTab(period) {
   try {
     const { ok, data } = await fetchJson(`/api/leaderboard?period=${period}&limit=100`);
     if (!ok || !data) throw new Error("failed");
-    renderLeaderboardEntries(leaderboardListEl, data.entries, "아직 등록된 기록이 없습니다");
+    renderLeaderboardEntries(leaderboardListEl, data.entries, "아직 등록된 기록이 없습니다", true);
   } catch {
-    renderLeaderboardEntries(leaderboardListEl, [], "랭킹을 불러올 수 없습니다");
+    renderLeaderboardEntries(leaderboardListEl, [], "랭킹을 불러올 수 없습니다", true);
   }
 }
 

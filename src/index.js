@@ -271,15 +271,23 @@ async function handleLeaderboard(request, env) {
   let params;
   if (period === "daily") {
     query =
-      "SELECT account_name as nickname, score, created_at FROM scores WHERE date = ? ORDER BY score DESC, created_at ASC LIMIT ?";
+      "SELECT account_name as nickname, score, date, created_at FROM scores WHERE date = ? ORDER BY score DESC, created_at ASC LIMIT ?";
     params = [today, limit];
   } else if (period === "weekly") {
     query =
-      "SELECT account_name as nickname, MAX(score) as score, MIN(created_at) as created_at FROM scores WHERE date >= ? GROUP BY account_name ORDER BY score DESC LIMIT ?";
+      "SELECT nickname, score, date, created_at FROM (" +
+      "SELECT account_name as nickname, score, date, created_at, " +
+      "ROW_NUMBER() OVER (PARTITION BY account_name ORDER BY score DESC, created_at ASC) as rn " +
+      "FROM scores WHERE date >= ?" +
+      ") WHERE rn = 1 ORDER BY score DESC LIMIT ?";
     params = [weekStartDate(today), limit];
   } else if (period === "alltime") {
     query =
-      "SELECT account_name as nickname, MAX(score) as score, MIN(created_at) as created_at FROM scores GROUP BY account_name ORDER BY score DESC LIMIT ?";
+      "SELECT nickname, score, date, created_at FROM (" +
+      "SELECT account_name as nickname, score, date, created_at, " +
+      "ROW_NUMBER() OVER (PARTITION BY account_name ORDER BY score DESC, created_at ASC) as rn " +
+      "FROM scores" +
+      ") WHERE rn = 1 ORDER BY score DESC LIMIT ?";
     params = [limit];
   } else {
     return jsonResponse({ error: "invalid period" }, 400);
