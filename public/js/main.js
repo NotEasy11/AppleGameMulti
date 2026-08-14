@@ -100,7 +100,7 @@ function clearDailyPlayed(date, name) {
 }
 
 async function fetchJson(url, options) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, { cache: "no-store", ...options });
   let data = null;
   try {
     data = await res.json();
