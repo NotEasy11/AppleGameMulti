@@ -532,11 +532,14 @@ button:active {
 }
 
 .apple::before {
-  content: "";
+  content: "🍎";
   position: absolute;
-  inset: 5.5px;
-  border-radius: 50%;
-  background: var(--color-apple);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  line-height: 1;
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
@@ -546,19 +549,45 @@ button:active {
   color: #fff;
   font-weight: 700;
   font-size: 17px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  transform: translateY(6px);
+  transition: opacity 0.15s ease;
 }
 
 .apple.selected::before {
   filter: brightness(0.85);
 }
 
+@keyframes apple-pop-out {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translate(calc(var(--pop-dx, 0px) * 0.15), calc(var(--pop-dy, 0px) * 0.15))
+      scale(1.2) rotate(calc(var(--pop-rot, 0deg) * 0.2));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--pop-dx, 0px), var(--pop-dy, 0px)) scale(0.15) rotate(var(--pop-rot, 0deg));
+    opacity: 0;
+  }
+}
+
 .apple.removed::before {
-  transform: scale(0);
-  opacity: 0;
+  animation: apple-pop-out 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .apple.removed span {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apple.removed::before {
+    animation: none;
+    transform: scale(0);
+    opacity: 0;
+  }
 }
 
 .selection-box {

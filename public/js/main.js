@@ -490,6 +490,27 @@ let todayTopScore = 0;
 let toppedTodayScore = false;
 let scoreSubmitted = false;
 
+function applyPopOutEffect(cellEl, index) {
+  const row = Math.floor(index / COLS);
+  const col = index % COLS;
+  const centerX = (COLS * CELL_SIZE) / 2;
+  const centerY = (ROWS * CELL_SIZE) / 2;
+  let dx = col * CELL_SIZE + CELL_SIZE / 2 - centerX;
+  let dy = row * CELL_SIZE + CELL_SIZE / 2 - centerY;
+  if (dx === 0 && dy === 0) {
+    const angle = Math.random() * Math.PI * 2;
+    dx = Math.cos(angle);
+    dy = Math.sin(angle);
+  }
+  const len = Math.hypot(dx, dy);
+  const distance = 70 + Math.random() * 50;
+  const rot = (Math.random() - 0.5) * 240;
+  cellEl.style.setProperty("--pop-dx", `${(dx / len) * distance}px`);
+  cellEl.style.setProperty("--pop-dy", `${(dy / len) * distance}px`);
+  cellEl.style.setProperty("--pop-rot", `${rot}deg`);
+  cellEl.classList.add("removed");
+}
+
 function buildBoardDom(boardValues) {
   boardEl.innerHTML = "";
   cellEls = [];
@@ -536,7 +557,7 @@ function onDragCommit(includedIndices) {
   }
   for (const idx of includedIndices) {
     removed[idx] = 1;
-    cellEls[idx].classList.add("removed");
+    applyPopOutEffect(cellEls[idx], idx);
   }
   const left = updateSidePanel();
   if (includedIndices.length > 0 && left === 0) {
@@ -977,7 +998,7 @@ function onMpDragCommit(includedIndices) {
     mpInputLog.push({ indices: includedIndices.slice(), t: Date.now() - mpGameStartedAt });
     for (const idx of includedIndices) {
       mpRemoved[idx] = 1;
-      mpCellEls[idx].classList.add("removed");
+      applyPopOutEffect(mpCellEls[idx], idx);
     }
     if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
       mpSocket.send(JSON.stringify({ type: "score_update", score: mpScoreTracker.score }));
@@ -992,7 +1013,7 @@ function onMpDragCommit(includedIndices) {
 function applyMpRemoval(msg) {
   for (const idx of msg.indices) {
     mpRemoved[idx] = 1;
-    if (mpCellEls[idx]) mpCellEls[idx].classList.add("removed");
+    if (mpCellEls[idx]) applyPopOutEffect(mpCellEls[idx], idx);
   }
   if (msg.mode === "coop") {
     mpCoopScore = msg.score;
