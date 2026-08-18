@@ -16,11 +16,13 @@
   <div class="mode-buttons">
     <button id="btn-daily">데일리 챌린지</button>
     <button id="btn-practice" class="secondary">자유 연습</button>
+    <button id="btn-mp-entry" class="secondary">2인 멀티플레이</button>
   </div>
   <p id="daily-note" class="daily-note">데일리 챌린지는 로그인 후 하루에 한 번만 도전할 수 있습니다.</p>
   <div class="link-button-row">
     <button id="btn-view-rules" class="link-button">게임 방법</button>
     <button id="btn-view-leaderboard" class="link-button">랭킹 보기</button>
+    <button id="btn-view-mp-leaderboard" class="link-button">멀티 랭킹</button>
   </div>
   <div class="title-ranking-panel">
     <h3>오늘의 일간 랭킹</h3>
@@ -140,6 +142,92 @@
 
     <button id="btn-retry">다시하기</button>
   </div>
+</section>
+
+<section id="screen-mp-entry" class="screen">
+  <h2>2인 멀티플레이</h2>
+  <div class="mp-card">
+    <div class="mp-block">
+      <h3>방 만들기</h3>
+      <div class="mp-mode-buttons">
+        <button id="btn-mp-create-race">레이스 모드</button>
+        <button id="btn-mp-create-coop" class="secondary">협동 모드</button>
+      </div>
+      <p class="mp-mode-desc">레이스: 같은 보드로 각자 플레이해 점수를 겨룹니다. 협동: 하나의 보드를 함께 지워 점수를 합칩니다.</p>
+    </div>
+    <div class="mp-block">
+      <h3>코드로 참가하기</h3>
+      <input id="mp-join-code-input" type="text" maxlength="6" placeholder="방 코드 6자리">
+      <button id="btn-mp-join" class="secondary">참가하기</button>
+    </div>
+    <div id="mp-entry-message" class="submit-message"></div>
+  </div>
+  <button id="btn-mp-entry-back" class="secondary">돌아가기</button>
+</section>
+
+<section id="screen-mp-lobby" class="screen">
+  <h2>대기실</h2>
+  <div class="mp-card">
+    <div class="mp-code-display">
+      <span class="mp-code-label">방 코드</span>
+      <span id="mp-lobby-code">------</span>
+    </div>
+    <p id="mp-lobby-mode" class="mp-mode-desc"></p>
+    <div class="mp-roster">
+      <div class="mp-roster-row"><span class="mp-roster-role">호스트</span><span id="mp-lobby-host">-</span></div>
+      <div class="mp-roster-row"><span class="mp-roster-role">참가자</span><span id="mp-lobby-guest">대기 중...</span></div>
+    </div>
+    <button id="btn-mp-start" style="display:none;">게임 시작</button>
+    <div id="mp-lobby-message" class="submit-message"></div>
+  </div>
+  <button id="btn-mp-lobby-leave" class="secondary">나가기</button>
+</section>
+
+<section id="screen-mp-game" class="screen">
+  <div class="timer-bar-wrap"><div id="mp-timer-bar"></div></div>
+  <div id="mp-timer-label">남은 시간 120초</div>
+  <div class="game-layout">
+    <div class="side-panel">
+      <h3 id="mp-my-label">내 점수</h3>
+      <div id="mp-my-score">0</div>
+      <h3>남은 사과</h3>
+      <div id="mp-apples-left-value">228</div>
+      <button id="btn-mp-quit" class="secondary" style="margin-top:24px;width:100%;">포기</button>
+    </div>
+
+    <div id="mp-board-hitzone" class="board-hitzone">
+      <div id="mp-board-frame" class="board-frame">
+        <div id="mp-board" class="board"></div>
+      </div>
+      <div id="mp-board-hit-overlay" class="board-hit-overlay"></div>
+      <div id="mp-countdown-overlay" class="countdown-overlay"></div>
+    </div>
+
+    <div class="side-panel">
+      <h3 id="mp-opponent-label">상대 점수</h3>
+      <div id="mp-opponent-score">0</div>
+      <div id="mp-status-note" class="mp-status-note"></div>
+    </div>
+  </div>
+</section>
+
+<section id="screen-mp-result" class="screen">
+  <div class="result-card">
+    <div id="mp-result-reason">시간 종료</div>
+    <div class="big-score" id="mp-result-score">0</div>
+    <button id="btn-mp-result-rematch">새 방 만들기</button>
+    <button id="btn-mp-result-title" class="secondary">타이틀로</button>
+  </div>
+</section>
+
+<section id="screen-mp-leaderboard" class="screen">
+  <h2>멀티플레이 랭킹</h2>
+  <div class="leaderboard-tabs">
+    <button id="mp-tab-race" class="tab-button active" data-mp-mode="race">레이스 (승수)</button>
+    <button id="mp-tab-coop" class="tab-button" data-mp-mode="coop">협동 (최고 합산)</button>
+  </div>
+  <ol id="mp-leaderboard-list" class="leaderboard-list"></ol>
+  <button id="btn-mp-leaderboard-back" class="secondary">돌아가기</button>
 </section>
 
 <script type="module" src="/js/main.js"></script>

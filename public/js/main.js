@@ -15,6 +15,11 @@ const screens = {
   result: document.getElementById("screen-result"),
   leaderboard: document.getElementById("screen-leaderboard"),
   rules: document.getElementById("screen-rules"),
+  mpEntry: document.getElementById("screen-mp-entry"),
+  mpLobby: document.getElementById("screen-mp-lobby"),
+  mpGame: document.getElementById("screen-mp-game"),
+  mpResult: document.getElementById("screen-mp-result"),
+  mpLeaderboard: document.getElementById("screen-mp-leaderboard"),
 };
 
 function showScreen(name) {
@@ -57,6 +62,30 @@ const adminClearDateInputEl = document.getElementById("admin-clear-date-input");
 const adminResetNameInputEl = document.getElementById("admin-reset-name-input");
 const adminResetDateInputEl = document.getElementById("admin-reset-date-input");
 const adminMessageEl = document.getElementById("admin-message");
+
+// ---------- Multiplayer DOM refs ----------
+const mpEntryMessageEl = document.getElementById("mp-entry-message");
+const mpJoinCodeInputEl = document.getElementById("mp-join-code-input");
+const mpLobbyCodeEl = document.getElementById("mp-lobby-code");
+const mpLobbyModeEl = document.getElementById("mp-lobby-mode");
+const mpLobbyHostEl = document.getElementById("mp-lobby-host");
+const mpLobbyGuestEl = document.getElementById("mp-lobby-guest");
+const mpLobbyMessageEl = document.getElementById("mp-lobby-message");
+const btnMpStartEl = document.getElementById("btn-mp-start");
+const mpBoardEl = document.getElementById("mp-board");
+const mpBoardHitOverlayEl = document.getElementById("mp-board-hit-overlay");
+const mpCountdownOverlayEl = document.getElementById("mp-countdown-overlay");
+const mpTimerBarEl = document.getElementById("mp-timer-bar");
+const mpTimerLabelEl = document.getElementById("mp-timer-label");
+const mpMyLabelEl = document.getElementById("mp-my-label");
+const mpMyScoreEl = document.getElementById("mp-my-score");
+const mpOpponentLabelEl = document.getElementById("mp-opponent-label");
+const mpOpponentScoreEl = document.getElementById("mp-opponent-score");
+const mpApplesLeftValueEl = document.getElementById("mp-apples-left-value");
+const mpStatusNoteEl = document.getElementById("mp-status-note");
+const mpResultReasonEl = document.getElementById("mp-result-reason");
+const mpResultScoreEl = document.getElementById("mp-result-score");
+const mpLeaderboardListEl = document.getElementById("mp-leaderboard-list");
 
 titleTaglineEl.textContent = `드래그해서 합이 10이 되는 사과를 지우세요. 제한 시간 ${GAME_DURATION_SECONDS}초, 총 ${CELL_COUNT}개의 사과`;
 applesLeftValueEl.textContent = String(CELL_COUNT);
@@ -724,6 +753,451 @@ btnSubmitScoreEl.addEventListener("click", async () => {
     submitMessageEl.className = "submit-message error";
     btnSubmitScoreEl.disabled = false;
   }
+});
+
+// ==================== Multiplayer ====================
+
+let mpSocket = null;
+let mpRole = null; // "host" | "guest"
+let mpMode = null; // "race" | "coop"
+let mpCode = null;
+let mpHostName = null;
+let mpGuestName = null;
+let mpRosterReceived = false;
+
+let mpValues = null;
+let mpRemoved = null;
+let mpCellEls = [];
+let mpCenters = [];
+let mpDragController = null;
+let mpTimer = null;
+let mpScoreTracker = null;
+let mpCoopScore = 0;
+let mpGameStartedAt = 0;
+let mpInputLog = [];
+let mpEnded = false;
+
+function mpWsUrl(code, account) {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${location.host}/api/multiplayer/rooms/${code}/ws?name=${encodeURIComponent(
+    account.name
+  )}&pin=${encodeURIComponent(account.pin)}`;
+}
+
+function connectMpSocket(code) {
+  mpRosterReceived = false;
+  const account = getAccount();
+  mpSocket = new WebSocket(mpWsUrl(code, account));
+  mpSocket.addEventListener("message", (evt) => {
+    let msg;
+    try {
+      msg = JSON.parse(evt.data);
+    } catch {
+      return;
+    }
+    if (msg.type === "roster") mpRosterReceived = true;
+    handleMpMessage(msg);
+  });
+  mpSocket.addEventListener("close", () => {
+    if (!mpRosterReceived) {
+      mpEntryMessageEl.textContent = "방에 참가하지 못했습니다. 코드를 확인해주세요.";
+      mpEntryMessageEl.className = "submit-message error";
+      showScreen("mpEntry");
+      return;
+    }
+    if (screens.mpLobby.classList.contains("active")) {
+      mpLobbyMessageEl.textContent = "연결이 끊어졌습니다.";
+      mpLobbyMessageEl.className = "submit-message error";
+    }
+  });
+}
+
+function handleMpMessage(msg) {
+  if (msg.type === "roster") {
+    mpMode = msg.mode;
+    renderMpLobby(msg);
+  } else if (msg.type === "game_start") {
+    startMpGame(msg.mode, msg.seed, msg.durationMs);
+  } else if (msg.type === "removed") {
+    applyMpRemoval(msg.indices, msg.score);
+  } else if (msg.type === "opponent_score") {
+    mpOpponentScoreEl.textContent = String(msg.score);
+  } else if (msg.type === "opponent_left") {
+    if (screens.mpGame.classList.contains("active")) {
+      mpStatusNoteEl.textContent = "상대방과의 연결이 끊어졌습니다.";
+    }
+  } else if (msg.type === "game_over") {
+    endMpGame(msg);
+  }
+}
+
+function renderMpLobby(roster) {
+  mpHostName = roster.hostName;
+  mpGuestName = roster.guestName;
+  mpLobbyModeEl.textContent =
+    roster.mode === "race" ? "레이스 모드 (각자 보드에서 점수 대결)" : "협동 모드 (하나의 보드를 함께 공략)";
+  mpLobbyHostEl.textContent = roster.hostName || "-";
+  mpLobbyGuestEl.textContent = roster.guestName || "대기 중...";
+  btnMpStartEl.style.display = mpRole === "host" ? "block" : "none";
+  btnMpStartEl.disabled = !roster.guestName;
+}
+
+async function createMpRoom(mode) {
+  const account = getAccount();
+  if (!account) {
+    accountIntroEl.textContent = "멀티플레이는 로그인 후 이용할 수 있습니다.";
+    openAccountScreen();
+    return;
+  }
+  mpEntryMessageEl.textContent = "방을 만드는 중...";
+  mpEntryMessageEl.className = "submit-message";
+  try {
+    const { ok, data } = await fetchJson("/api/multiplayer/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin, mode }),
+    });
+    if (!ok || !data || !data.ok) {
+      mpEntryMessageEl.textContent = "방을 만들지 못했습니다. 잠시 후 다시 시도해주세요.";
+      mpEntryMessageEl.className = "submit-message error";
+      return;
+    }
+    mpRole = "host";
+    mpMode = mode;
+    mpCode = data.code;
+    mpLobbyCodeEl.textContent = mpCode;
+    mpLobbyMessageEl.textContent = "";
+    connectMpSocket(mpCode);
+    showScreen("mpLobby");
+  } catch {
+    mpEntryMessageEl.textContent = "네트워크 오류가 발생했습니다.";
+    mpEntryMessageEl.className = "submit-message error";
+  }
+}
+
+function joinMpRoom() {
+  const account = getAccount();
+  if (!account) {
+    accountIntroEl.textContent = "멀티플레이는 로그인 후 이용할 수 있습니다.";
+    openAccountScreen();
+    return;
+  }
+  const code = mpJoinCodeInputEl.value.trim().toUpperCase();
+  if (code.length !== 6) {
+    mpEntryMessageEl.textContent = "6자리 방 코드를 입력해주세요.";
+    mpEntryMessageEl.className = "submit-message error";
+    return;
+  }
+  mpRole = "guest";
+  mpCode = code;
+  mpLobbyCodeEl.textContent = code;
+  mpLobbyMessageEl.textContent = "";
+  connectMpSocket(code);
+  showScreen("mpLobby");
+}
+
+function buildMpBoardDom(boardValues) {
+  mpBoardEl.innerHTML = "";
+  mpCellEls = [];
+  mpCenters = [];
+  for (let i = 0; i < CELL_COUNT; i++) {
+    const row = Math.floor(i / COLS);
+    const col = i % COLS;
+    const cell = document.createElement("div");
+    cell.className = "apple";
+    const span = document.createElement("span");
+    span.textContent = String(boardValues[i]);
+    cell.appendChild(span);
+    mpBoardEl.appendChild(cell);
+    mpCellEls.push(cell);
+    mpCenters.push({ x: col * CELL_SIZE + CELL_SIZE / 2, y: row * CELL_SIZE + CELL_SIZE / 2 });
+  }
+}
+
+function mpIsRemoved(index) {
+  return mpRemoved[index] === 1;
+}
+
+function updateMpSidePanel() {
+  let left = 0;
+  for (let i = 0; i < CELL_COUNT; i++) {
+    if (!mpIsRemoved(i)) left++;
+  }
+  mpApplesLeftValueEl.textContent = String(left);
+  mpMyScoreEl.textContent = String(mpMode === "coop" ? mpCoopScore : mpScoreTracker.score);
+  return left;
+}
+
+function finishMpRaceEarly() {
+  if (mpEnded) return;
+  mpEnded = true;
+  if (mpTimer) mpTimer.stop();
+  if (mpDragController) mpDragController.destroy();
+  mpSocket.send(JSON.stringify({ type: "final_result", score: mpScoreTracker.score, inputLog: mpInputLog }));
+  mpStatusNoteEl.textContent = "보드를 모두 지웠습니다! 상대방의 결과를 기다리는 중...";
+}
+
+function onMpDragCommit(includedIndices) {
+  if (mpEnded) return;
+  if (mpMode === "coop") {
+    if (includedIndices.length > 0) {
+      mpSocket.send(JSON.stringify({ type: "try_remove", indices: includedIndices }));
+    }
+    return;
+  }
+  mpScoreTracker.recordDrag(includedIndices.length);
+  if (includedIndices.length > 0) {
+    mpInputLog.push({ indices: includedIndices.slice(), t: Date.now() - mpGameStartedAt });
+    for (const idx of includedIndices) {
+      mpRemoved[idx] = 1;
+      mpCellEls[idx].classList.add("removed");
+    }
+    if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
+      mpSocket.send(JSON.stringify({ type: "score_update", score: mpScoreTracker.score }));
+    }
+  }
+  const left = updateMpSidePanel();
+  if (includedIndices.length > 0 && left === 0) {
+    finishMpRaceEarly();
+  }
+}
+
+function applyMpRemoval(indices, score) {
+  for (const idx of indices) {
+    mpRemoved[idx] = 1;
+    if (mpCellEls[idx]) mpCellEls[idx].classList.add("removed");
+  }
+  mpCoopScore = score;
+  updateMpSidePanel();
+}
+
+function onMpTimerTick(remaining, urgent) {
+  const pct = Math.max(0, (remaining / GAME_DURATION_SECONDS) * 100);
+  mpTimerBarEl.style.width = `${pct}%`;
+  mpTimerBarEl.classList.toggle("urgent", urgent);
+  mpTimerLabelEl.classList.toggle("urgent", urgent);
+  mpTimerLabelEl.textContent = `남은 시간 ${remaining}초`;
+}
+
+function onMpTimerExpire() {
+  if (mpEnded) return;
+  mpEnded = true;
+  if (mpDragController) mpDragController.destroy();
+  if (mpMode === "race") {
+    mpSocket.send(JSON.stringify({ type: "final_result", score: mpScoreTracker.score, inputLog: mpInputLog }));
+  } else {
+    mpSocket.send(JSON.stringify({ type: "final_result" }));
+  }
+  mpStatusNoteEl.textContent = "결과를 계산하는 중...";
+}
+
+function startMpGame(mode, seed, durationMs) {
+  mpMode = mode;
+  mpEnded = false;
+  mpInputLog = [];
+  mpCoopScore = 0;
+  mpStatusNoteEl.textContent = "";
+
+  const board = generateBoard(seed);
+  mpValues = board.values;
+  mpRemoved = new Uint8Array(CELL_COUNT);
+  mpScoreTracker = createScoreTracker();
+
+  const partnerName = mpRole === "host" ? mpGuestName : mpHostName;
+  if (mode === "coop") {
+    mpMyLabelEl.textContent = "우리 점수";
+    mpOpponentLabelEl.textContent = "함께 플레이 중";
+    mpOpponentScoreEl.textContent = partnerName || "-";
+  } else {
+    mpMyLabelEl.textContent = "내 점수";
+    mpOpponentLabelEl.textContent = `${partnerName || "상대"} 점수`;
+    mpOpponentScoreEl.textContent = "0";
+  }
+
+  buildMpBoardDom(mpValues);
+  updateMpSidePanel();
+
+  mpTimerBarEl.style.width = "100%";
+  mpTimerBarEl.classList.remove("urgent");
+  mpTimerLabelEl.classList.remove("urgent");
+  mpTimerLabelEl.textContent = `남은 시간 ${Math.round(durationMs / 1000)}초`;
+
+  showScreen("mpGame");
+  mpCountdownOverlayEl.classList.add("active");
+
+  runCountdown(
+    (n) => {
+      mpCountdownOverlayEl.textContent = String(n);
+    },
+    () => {
+      mpCountdownOverlayEl.classList.remove("active");
+      mpGameStartedAt = Date.now();
+      mpDragController = createDragController({
+        boardEl: mpBoardEl,
+        frameEl: mpBoardHitOverlayEl,
+        cellEls: mpCellEls,
+        centers: mpCenters,
+        values: mpValues,
+        isRemoved: mpIsRemoved,
+        onCommit: onMpDragCommit,
+      });
+      mpTimer = createGameTimer({
+        durationSeconds: Math.round(durationMs / 1000),
+        onTick: onMpTimerTick,
+        onExpire: onMpTimerExpire,
+      });
+      mpTimer.start();
+    }
+  );
+}
+
+function endMpGame(result) {
+  if (mpTimer) mpTimer.stop();
+  if (mpDragController) mpDragController.destroy();
+  mpEnded = true;
+
+  if (result.mode === "race") {
+    const account = getAccount();
+    const myScore = mpRole === "host" ? result.hostScore : result.guestScore;
+    const oppScore = mpRole === "host" ? result.guestScore : result.hostScore;
+    const draw = !result.winnerName;
+    const iWon = !draw && account && result.winnerName === account.name;
+    mpResultReasonEl.textContent = draw ? "무승부입니다!" : iWon ? "승리했습니다! 🎉" : "패배했습니다";
+    mpResultScoreEl.textContent = `${myScore} : ${oppScore}`;
+  } else {
+    mpResultReasonEl.textContent =
+      result.reason === "perfect"
+        ? "퍼펙트! 모든 사과를 함께 제거했습니다"
+        : result.reason === "opponent_disconnected"
+        ? "상대방과 연결이 끊어져 종료되었습니다"
+        : "시간 종료";
+    mpResultScoreEl.textContent = String(result.score);
+  }
+
+  showScreen("mpResult");
+}
+
+function renderMpLeaderboard(mode, entries) {
+  mpLeaderboardListEl.innerHTML = "";
+  if (!entries || entries.length === 0) {
+    const li = document.createElement("li");
+    li.className = "leaderboard-empty";
+    li.textContent = mode === "race" ? "아직 기록된 승리가 없습니다" : "아직 등록된 협동 기록이 없습니다";
+    mpLeaderboardListEl.appendChild(li);
+    return;
+  }
+  entries.forEach((entry, i) => {
+    const li = document.createElement("li");
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = `#${i + 1}`;
+    const nickname = document.createElement("span");
+    nickname.className = "nickname";
+    nickname.textContent = mode === "race" ? entry.nickname : `${entry.player1_name} & ${entry.player2_name}`;
+    const score = document.createElement("span");
+    score.className = "score";
+    score.textContent = mode === "race" ? `${entry.wins}승` : String(entry.score);
+    li.append(rank, nickname, score);
+    mpLeaderboardListEl.appendChild(li);
+  });
+}
+
+async function loadMpLeaderboardTab(mode) {
+  mpLeaderboardListEl.innerHTML = '<li class="leaderboard-empty">불러오는 중...</li>';
+  try {
+    const { ok, data } = await fetchJson(`/api/multiplayer/leaderboard?mode=${mode}&limit=20`);
+    if (!ok || !data) throw new Error("failed");
+    renderMpLeaderboard(mode, data.entries);
+  } catch {
+    renderMpLeaderboard(mode, []);
+  }
+}
+
+document.getElementById("btn-mp-entry").addEventListener("click", () => {
+  mpEntryMessageEl.textContent = "";
+  mpJoinCodeInputEl.value = "";
+  showScreen("mpEntry");
+});
+
+document.getElementById("btn-mp-entry-back").addEventListener("click", () => showScreen("title"));
+
+document.getElementById("btn-mp-create-race").addEventListener("click", () => createMpRoom("race"));
+document.getElementById("btn-mp-create-coop").addEventListener("click", () => createMpRoom("coop"));
+document.getElementById("btn-mp-join").addEventListener("click", () => joinMpRoom());
+
+btnMpStartEl.addEventListener("click", () => {
+  if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
+    mpSocket.send(JSON.stringify({ type: "start" }));
+  }
+});
+
+document.getElementById("btn-mp-lobby-leave").addEventListener("click", () => {
+  if (mpSocket) {
+    try {
+      mpSocket.close();
+    } catch {
+      // ignore
+    }
+  }
+  showScreen("mpEntry");
+});
+
+document.getElementById("btn-mp-quit").addEventListener("click", () => {
+  if (!confirm("게임을 포기하고 나가시겠습니까?")) return;
+  if (mpSocket) {
+    try {
+      mpSocket.send(JSON.stringify({ type: "quit" }));
+      mpSocket.close();
+    } catch {
+      // ignore
+    }
+  }
+  if (mpTimer) mpTimer.stop();
+  if (mpDragController) mpDragController.destroy();
+  mpEnded = true;
+  showScreen("title");
+});
+
+document.getElementById("btn-mp-result-rematch").addEventListener("click", () => {
+  if (mpSocket) {
+    try {
+      mpSocket.close();
+    } catch {
+      // ignore
+    }
+  }
+  mpEntryMessageEl.textContent = "";
+  showScreen("mpEntry");
+});
+
+document.getElementById("btn-mp-result-title").addEventListener("click", () => {
+  if (mpSocket) {
+    try {
+      mpSocket.close();
+    } catch {
+      // ignore
+    }
+  }
+  showScreen("title");
+});
+
+document.getElementById("btn-view-mp-leaderboard").addEventListener("click", () => {
+  showScreen("mpLeaderboard");
+  loadMpLeaderboardTab("race");
+});
+
+document.getElementById("btn-mp-leaderboard-back").addEventListener("click", () => showScreen("title"));
+
+document.getElementById("mp-tab-race").addEventListener("click", (e) => {
+  document.querySelectorAll("#screen-mp-leaderboard .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadMpLeaderboardTab("race");
+});
+
+document.getElementById("mp-tab-coop").addEventListener("click", (e) => {
+  document.querySelectorAll("#screen-mp-leaderboard .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadMpLeaderboardTab("coop");
 });
 
 refreshAccountStatus();

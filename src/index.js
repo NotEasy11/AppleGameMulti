@@ -4,6 +4,9 @@ import {
   getDailySeedString,
   TARGET_SUM,
 } from "../public/js/board.js";
+import { GameRoom } from "./gameRoom.js";
+
+export { GameRoom };
 
 const GAME_DURATION_MS = 120_000;
 const TIMING_GRACE_MS = 10_000;
@@ -12,6 +15,9 @@ const MAX_LEADERBOARD_LIMIT = 100;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const PIN_PATTERN = /^\d{4,8}$/;
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ROOM_CODE_LENGTH = 6;
+const MAX_ROOM_CODE_ATTEMPTS = 10;
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -358,6 +364,83 @@ async function handleLeaderboard(request, env) {
   return jsonResponse({ period, date: today, entries: results ?? [] });
 }
 
+function generateRoomCode() {
+  let code = "";
+  for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
+    code += ROOM_CODE_ALPHABET[Math.floor(Math.random() * ROOM_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+async function handleCreateRoom(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+  const mode = body.mode;
+  if (mode !== "race" && mode !== "coop") return jsonResponse({ error: "invalid mode" }, 400);
+
+  for (let attempt = 0; attempt < MAX_ROOM_CODE_ATTEMPTS; attempt++) {
+    const code = generateRoomCode();
+    const id = env.GAME_ROOM.idFromName(code);
+    const stub = env.GAME_ROOM.get(id);
+    const res = await stub.fetch("https://room/init", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, mode, hostName: auth.name }),
+    });
+    if (res.ok) {
+      return jsonResponse({ ok: true, code, mode });
+    }
+  }
+  return jsonResponse({ error: "failed to create room" }, 500);
+}
+
+async function handleRoomWebSocket(request, env, code) {
+  const url = new URL(request.url);
+  const name = url.searchParams.get("name");
+  const pin = url.searchParams.get("pin");
+  const auth = await verifyAccount(env, name, pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+  const id = env.GAME_ROOM.idFromName(code.toUpperCase());
+  const stub = env.GAME_ROOM.get(id);
+  const forwardUrl = new URL("https://room/ws");
+  forwardUrl.searchParams.set("name", auth.name);
+  return stub.fetch(forwardUrl.toString(), request);
+}
+
+async function handleMultiplayerLeaderboard(request, env) {
+  const url = new URL(request.url);
+  const mode = url.searchParams.get("mode") || "race";
+  const limitParam = parseInt(url.searchParams.get("limit") || "20", 10);
+  const limit = Math.min(Math.max(1, Number.isNaN(limitParam) ? 20 : limitParam), MAX_LEADERBOARD_LIMIT);
+
+  if (mode === "race") {
+    const { results } = await env.DB.prepare(
+      "SELECT winner_name as nickname, COUNT(*) as wins FROM multiplayer_matches " +
+        "WHERE mode = 'race' AND winner_name IS NOT NULL " +
+        "GROUP BY winner_name ORDER BY wins DESC LIMIT ?"
+    )
+      .bind(limit)
+      .all();
+    return jsonResponse({ mode, entries: results ?? [] });
+  }
+
+  if (mode === "coop") {
+    const { results } = await env.DB.prepare(
+      "SELECT player1_name, player2_name, player1_score as score, created_at " +
+        "FROM multiplayer_matches WHERE mode = 'coop' ORDER BY score DESC, created_at ASC LIMIT ?"
+    )
+      .bind(limit)
+      .all();
+    return jsonResponse({ mode, entries: results ?? [] });
+  }
+
+  return jsonResponse({ error: "invalid mode" }, 400);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -387,6 +470,16 @@ export default {
     }
     if (url.pathname === "/api/admin/reset-daily" && request.method === "POST") {
       return handleAdminResetDaily(request, env);
+    }
+    if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
+      return handleCreateRoom(request, env);
+    }
+    if (url.pathname === "/api/multiplayer/leaderboard" && request.method === "GET") {
+      return handleMultiplayerLeaderboard(request, env);
+    }
+    const roomWsMatch = url.pathname.match(/^\/api\/multiplayer\/rooms\/([A-Z0-9]{6})\/ws$/i);
+    if (roomWsMatch) {
+      return handleRoomWebSocket(request, env, roomWsMatch[1]);
     }
     return env.ASSETS.fetch(request);
   },
