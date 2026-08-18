@@ -36,7 +36,7 @@ body {
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  width: 280px;
+  width: 340px;
 }
 
 .title-ranking-panel h3 {
@@ -51,6 +51,17 @@ body {
   max-height: none;
   box-shadow: none;
   border-radius: 0;
+}
+
+.title-ranking-panel .leaderboard-list li {
+  align-items: baseline;
+}
+
+.title-ranking-panel .leaderboard-list .nickname {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
 }
 
 #screen-title h1 {
