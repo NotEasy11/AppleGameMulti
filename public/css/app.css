@@ -739,6 +739,17 @@ button:active {
   white-space: nowrap;
 }
 
+#mp-leaderboard-list li {
+  align-items: baseline;
+}
+
+#mp-leaderboard-list .nickname {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .leaderboard-list .score {
   font-weight: 700;
 }
