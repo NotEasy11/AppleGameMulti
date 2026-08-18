@@ -28,6 +28,7 @@ function showScreen(name) {
   }
   if (name === "title") {
     loadTitleRanking();
+    loadTitleMpRanking(titleMpRankingMode);
   }
 }
 
@@ -53,6 +54,7 @@ const btnSubmitScoreEl = document.getElementById("btn-submit-score");
 const submitMessageEl = document.getElementById("submit-message");
 const leaderboardListEl = document.getElementById("leaderboard-list");
 const titleRankingListEl = document.getElementById("title-ranking-list");
+const titleMpRankingListEl = document.getElementById("title-mp-ranking-list");
 const accountStatusEl = document.getElementById("account-status");
 const accountIntroEl = document.getElementById("account-intro");
 const accountNameInputEl = document.getElementById("account-name-input");
@@ -418,6 +420,20 @@ async function loadTitleRanking() {
     renderLeaderboardEntries(titleRankingListEl, data.entries, "아직 등록된 기록이 없습니다");
   } catch {
     renderLeaderboardEntries(titleRankingListEl, [], "랭킹을 불러올 수 없습니다");
+  }
+}
+
+let titleMpRankingMode = "race";
+
+async function loadTitleMpRanking(mode) {
+  titleMpRankingMode = mode;
+  titleMpRankingListEl.innerHTML = '<li class="leaderboard-empty">불러오는 중...</li>';
+  try {
+    const { ok, data } = await fetchJson(`/api/multiplayer/leaderboard?mode=${mode}&limit=10`);
+    if (!ok || !data) throw new Error("failed");
+    renderMpLeaderboardInto(titleMpRankingListEl, mode, data.entries);
+  } catch {
+    renderMpLeaderboardInto(titleMpRankingListEl, mode, []);
   }
 }
 
@@ -1102,13 +1118,13 @@ function endMpGame(result) {
   showScreen("mpResult");
 }
 
-function renderMpLeaderboard(mode, entries) {
-  mpLeaderboardListEl.innerHTML = "";
+function renderMpLeaderboardInto(listEl, mode, entries) {
+  listEl.innerHTML = "";
   if (!entries || entries.length === 0) {
     const li = document.createElement("li");
     li.className = "leaderboard-empty";
     li.textContent = mode === "race" ? "아직 기록된 승리가 없습니다" : "아직 등록된 협동 기록이 없습니다";
-    mpLeaderboardListEl.appendChild(li);
+    listEl.appendChild(li);
     return;
   }
   entries.forEach((entry, i) => {
@@ -1123,8 +1139,12 @@ function renderMpLeaderboard(mode, entries) {
     score.className = "score";
     score.textContent = mode === "race" ? `${entry.wins}승 ${entry.losses}패` : String(entry.score);
     li.append(rank, nickname, score);
-    mpLeaderboardListEl.appendChild(li);
+    listEl.appendChild(li);
   });
+}
+
+function renderMpLeaderboard(mode, entries) {
+  renderMpLeaderboardInto(mpLeaderboardListEl, mode, entries);
 }
 
 async function loadMpLeaderboardTab(mode) {
@@ -1226,7 +1246,20 @@ document.getElementById("mp-tab-coop").addEventListener("click", (e) => {
   loadMpLeaderboardTab("coop");
 });
 
+document.getElementById("title-mp-tab-race").addEventListener("click", (e) => {
+  document.querySelectorAll(".title-mp-tabs .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadTitleMpRanking("race");
+});
+
+document.getElementById("title-mp-tab-coop").addEventListener("click", (e) => {
+  document.querySelectorAll(".title-mp-tabs .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadTitleMpRanking("coop");
+});
+
 refreshAccountStatus();
 syncDailyStatus();
 loadTop5();
 loadTitleRanking();
+loadTitleMpRanking("race");

@@ -27,10 +27,10 @@ body {
 
 /* ---------- Title screen ---------- */
 
-.title-ranking-panel {
+.title-ranking-panel,
+.title-mp-ranking-panel {
   position: fixed;
   top: 50%;
-  right: 210px;
   transform: translateY(-50%);
   background: #fff;
   border-radius: 12px;
@@ -39,12 +39,22 @@ body {
   width: 340px;
 }
 
-/* Below this width the fixed side panel would overlap the centered title
-   content, so let it flow inline below the title instead. */
+.title-ranking-panel {
+  left: 210px;
+}
+
+.title-mp-ranking-panel {
+  right: 210px;
+}
+
+/* Below this width the fixed side panels would overlap the centered title
+   content, so let them flow inline (stacked) below the title instead. */
 @media (max-width: 1400px) {
-  .title-ranking-panel {
+  .title-ranking-panel,
+  .title-mp-ranking-panel {
     position: static;
     top: auto;
+    left: auto;
     right: auto;
     transform: none;
     margin-top: 4px;
@@ -58,22 +68,37 @@ body {
   font-weight: 600;
 }
 
-.title-ranking-panel .leaderboard-list {
+.title-ranking-panel .leaderboard-list,
+.title-mp-ranking-panel .leaderboard-list {
   width: auto;
   max-height: none;
   box-shadow: none;
   border-radius: 0;
 }
 
-.title-ranking-panel .leaderboard-list li {
+.title-ranking-panel .leaderboard-list li,
+.title-mp-ranking-panel .leaderboard-list li {
   align-items: baseline;
 }
 
-.title-ranking-panel .leaderboard-list .nickname {
+.title-ranking-panel .leaderboard-list .nickname,
+.title-mp-ranking-panel .leaderboard-list .nickname {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
   word-break: break-word;
+}
+
+.title-mp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.title-mp-tabs .tab-button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 12px;
 }
 
 #screen-title h1 {
