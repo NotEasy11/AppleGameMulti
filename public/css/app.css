@@ -190,7 +190,7 @@ button.danger {
   border-radius: 12px;
   padding: 24px 28px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  width: 340px;
+  width: 400px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -216,6 +216,9 @@ button.danger {
 
 .mp-mode-buttons button {
   flex: 1;
+  padding: 12px 8px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .mp-mode-desc {
@@ -434,24 +437,28 @@ button:active {
   margin-bottom: 4px;
 }
 
-#timer-bar {
+#timer-bar,
+#mp-timer-bar {
   height: 100%;
   background: var(--color-accent);
   width: 100%;
   transition: width 0.2s linear, background-color 0.2s linear;
 }
 
-#timer-bar.urgent {
+#timer-bar.urgent,
+#mp-timer-bar.urgent {
   background: var(--color-danger);
 }
 
-#timer-label {
+#timer-label,
+#mp-timer-label {
   font-size: 14px;
   color: var(--color-text-muted);
   margin-bottom: 10px;
 }
 
-#timer-label.urgent {
+#timer-label.urgent,
+#mp-timer-label.urgent {
   color: var(--color-danger);
   font-weight: 700;
 }

@@ -379,7 +379,7 @@ async function handleCreateRoom(request, env) {
   if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
 
   const mode = body.mode;
-  if (mode !== "race" && mode !== "coop") return jsonResponse({ error: "invalid mode" }, 400);
+  if (!["race", "coop", "duel"].includes(mode)) return jsonResponse({ error: "invalid mode" }, 400);
 
   for (let attempt = 0; attempt < MAX_ROOM_CODE_ATTEMPTS; attempt++) {
     const code = generateRoomCode();
@@ -419,9 +419,14 @@ async function handleMultiplayerLeaderboard(request, env) {
 
   if (mode === "race") {
     const { results } = await env.DB.prepare(
-      "SELECT winner_name as nickname, COUNT(*) as wins FROM multiplayer_matches " +
-        "WHERE mode = 'race' AND winner_name IS NOT NULL " +
-        "GROUP BY winner_name ORDER BY wins DESC LIMIT ?"
+      "SELECT name as nickname, " +
+        "SUM(CASE WHEN winner_name = name THEN 1 ELSE 0 END) as wins, " +
+        "SUM(CASE WHEN winner_name IS NOT NULL AND winner_name != name THEN 1 ELSE 0 END) as losses " +
+        "FROM (" +
+        "SELECT player1_name as name, winner_name FROM multiplayer_matches WHERE mode = 'race' " +
+        "UNION ALL " +
+        "SELECT player2_name as name, winner_name FROM multiplayer_matches WHERE mode = 'race'" +
+        ") GROUP BY name ORDER BY wins DESC, losses ASC LIMIT ?"
     )
       .bind(limit)
       .all();

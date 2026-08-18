@@ -773,6 +773,7 @@ let mpDragController = null;
 let mpTimer = null;
 let mpScoreTracker = null;
 let mpCoopScore = 0;
+let mpDuelMyScore = 0;
 let mpGameStartedAt = 0;
 let mpInputLog = [];
 let mpEnded = false;
@@ -819,7 +820,7 @@ function handleMpMessage(msg) {
   } else if (msg.type === "game_start") {
     startMpGame(msg.mode, msg.seed, msg.durationMs);
   } else if (msg.type === "removed") {
-    applyMpRemoval(msg.indices, msg.score);
+    applyMpRemoval(msg);
   } else if (msg.type === "opponent_score") {
     mpOpponentScoreEl.textContent = String(msg.score);
   } else if (msg.type === "opponent_left") {
@@ -835,7 +836,11 @@ function renderMpLobby(roster) {
   mpHostName = roster.hostName;
   mpGuestName = roster.guestName;
   mpLobbyModeEl.textContent =
-    roster.mode === "race" ? "레이스 모드 (각자 보드에서 점수 대결)" : "협동 모드 (하나의 보드를 함께 공략)";
+    roster.mode === "race"
+      ? "레이스 모드 (각자 보드에서 점수 대결)"
+      : roster.mode === "duel"
+      ? "대결 모드 (하나의 보드를 함께 보며 실시간 대결)"
+      : "협동 모드 (하나의 보드를 함께 공략)";
   mpLobbyHostEl.textContent = roster.hostName || "-";
   mpLobbyGuestEl.textContent = roster.guestName || "대기 중...";
   btnMpStartEl.style.display = mpRole === "host" ? "block" : "none";
@@ -924,7 +929,13 @@ function updateMpSidePanel() {
     if (!mpIsRemoved(i)) left++;
   }
   mpApplesLeftValueEl.textContent = String(left);
-  mpMyScoreEl.textContent = String(mpMode === "coop" ? mpCoopScore : mpScoreTracker.score);
+  if (mpMode === "coop") {
+    mpMyScoreEl.textContent = String(mpCoopScore);
+  } else if (mpMode === "duel") {
+    mpMyScoreEl.textContent = String(mpDuelMyScore);
+  } else {
+    mpMyScoreEl.textContent = String(mpScoreTracker.score);
+  }
   return left;
 }
 
@@ -939,7 +950,7 @@ function finishMpRaceEarly() {
 
 function onMpDragCommit(includedIndices) {
   if (mpEnded) return;
-  if (mpMode === "coop") {
+  if (mpMode === "coop" || mpMode === "duel") {
     if (includedIndices.length > 0) {
       mpSocket.send(JSON.stringify({ type: "try_remove", indices: includedIndices }));
     }
@@ -962,12 +973,18 @@ function onMpDragCommit(includedIndices) {
   }
 }
 
-function applyMpRemoval(indices, score) {
-  for (const idx of indices) {
+function applyMpRemoval(msg) {
+  for (const idx of msg.indices) {
     mpRemoved[idx] = 1;
     if (mpCellEls[idx]) mpCellEls[idx].classList.add("removed");
   }
-  mpCoopScore = score;
+  if (msg.mode === "coop") {
+    mpCoopScore = msg.score;
+  } else if (msg.mode === "duel") {
+    mpDuelMyScore = mpRole === "host" ? msg.hostScore : msg.guestScore;
+    const oppScore = mpRole === "host" ? msg.guestScore : msg.hostScore;
+    mpOpponentScoreEl.textContent = String(oppScore);
+  }
   updateMpSidePanel();
 }
 
@@ -996,6 +1013,7 @@ function startMpGame(mode, seed, durationMs) {
   mpEnded = false;
   mpInputLog = [];
   mpCoopScore = 0;
+  mpDuelMyScore = 0;
   mpStatusNoteEl.textContent = "";
 
   const board = generateBoard(seed);
@@ -1056,13 +1074,20 @@ function endMpGame(result) {
   if (mpDragController) mpDragController.destroy();
   mpEnded = true;
 
-  if (result.mode === "race") {
+  if (result.mode === "race" || result.mode === "duel") {
     const account = getAccount();
     const myScore = mpRole === "host" ? result.hostScore : result.guestScore;
     const oppScore = mpRole === "host" ? result.guestScore : result.hostScore;
     const draw = !result.winnerName;
     const iWon = !draw && account && result.winnerName === account.name;
-    mpResultReasonEl.textContent = draw ? "무승부입니다!" : iWon ? "승리했습니다! 🎉" : "패배했습니다";
+    const reasonPrefix =
+      result.mode === "duel" && result.reason === "perfect"
+        ? "퍼펙트! "
+        : result.mode === "duel" && result.reason === "opponent_disconnected"
+        ? "상대방과 연결이 끊어졌습니다. "
+        : "";
+    mpResultReasonEl.textContent =
+      reasonPrefix + (draw ? "무승부입니다!" : iWon ? "승리했습니다! 🎉" : "패배했습니다");
     mpResultScoreEl.textContent = `${myScore} : ${oppScore}`;
   } else {
     mpResultReasonEl.textContent =
@@ -1096,7 +1121,7 @@ function renderMpLeaderboard(mode, entries) {
     nickname.textContent = mode === "race" ? entry.nickname : `${entry.player1_name} & ${entry.player2_name}`;
     const score = document.createElement("span");
     score.className = "score";
-    score.textContent = mode === "race" ? `${entry.wins}승` : String(entry.score);
+    score.textContent = mode === "race" ? `${entry.wins}승 ${entry.losses}패` : String(entry.score);
     li.append(rank, nickname, score);
     mpLeaderboardListEl.appendChild(li);
   });
@@ -1122,6 +1147,7 @@ document.getElementById("btn-mp-entry").addEventListener("click", () => {
 document.getElementById("btn-mp-entry-back").addEventListener("click", () => showScreen("title"));
 
 document.getElementById("btn-mp-create-race").addEventListener("click", () => createMpRoom("race"));
+document.getElementById("btn-mp-create-duel").addEventListener("click", () => createMpRoom("duel"));
 document.getElementById("btn-mp-create-coop").addEventListener("click", () => createMpRoom("coop"));
 document.getElementById("btn-mp-join").addEventListener("click", () => joinMpRoom());
 

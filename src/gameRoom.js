@@ -29,6 +29,7 @@ export class GameRoom {
     this.values = null;
     this.removed = null;
     this.coopScore = 0;
+    this.duelScores = { host: 0, guest: 0 };
     this.raceResults = new Map(); // role -> { name, score, inputLog }
     this.room = defaultRoom();
     this.loaded = this.state.blockConcurrencyWhile(async () => {
@@ -59,7 +60,7 @@ export class GameRoom {
       return jsonResponse({ error: "room in use" }, 409);
     }
     const body = await request.json().catch(() => null);
-    if (!body || !body.code || !body.hostName || (body.mode !== "race" && body.mode !== "coop")) {
+    if (!body || !body.code || !body.hostName || !["race", "coop", "duel"].includes(body.mode)) {
       return jsonResponse({ error: "invalid init" }, 400);
     }
     this.room = {
@@ -74,6 +75,7 @@ export class GameRoom {
     this.values = null;
     this.removed = null;
     this.coopScore = 0;
+    this.duelScores = { host: 0, guest: 0 };
     this.raceResults = new Map();
     await this.persist();
     return jsonResponse({ ok: true });
@@ -170,6 +172,8 @@ export class GameRoom {
     if (this.room.status === "playing") {
       if (this.room.mode === "coop") {
         this.finishCoop("opponent_disconnected").catch(() => {});
+      } else if (this.room.mode === "duel") {
+        this.finishDuel("opponent_disconnected").catch(() => {});
       } else if (this.room.mode === "race" && !this.raceResults.has(info.role)) {
         this.raceResults.set(info.role, { name: info.name, score: 0, inputLog: [] });
         if (this.raceResults.size >= 2) {
@@ -196,6 +200,7 @@ export class GameRoom {
       this.values = board.values;
       this.removed = new Uint8Array(this.values.length);
       this.coopScore = 0;
+      this.duelScores = { host: 0, guest: 0 };
       this.raceResults = new Map();
       this.room.seed = seed;
       this.room.startedAt = Date.now();
@@ -210,7 +215,11 @@ export class GameRoom {
       return;
     }
 
-    if (msg.type === "try_remove" && this.room.mode === "coop" && this.room.status === "playing") {
+    if (
+      msg.type === "try_remove" &&
+      (this.room.mode === "coop" || this.room.mode === "duel") &&
+      this.room.status === "playing"
+    ) {
       const indices = Array.isArray(msg.indices) ? msg.indices : [];
       let sum = 0;
       let valid = indices.length > 0;
@@ -229,8 +238,20 @@ export class GameRoom {
       }
       if (valid && sum === TARGET_SUM) {
         for (const idx of indices) this.removed[idx] = 1;
-        this.coopScore += indices.length;
-        this.broadcast({ type: "removed", indices, by: info.role, score: this.coopScore });
+        if (this.room.mode === "coop") {
+          this.coopScore += indices.length;
+          this.broadcast({ type: "removed", indices, by: info.role, mode: "coop", score: this.coopScore });
+        } else {
+          this.duelScores[info.role] += indices.length;
+          this.broadcast({
+            type: "removed",
+            indices,
+            by: info.role,
+            mode: "duel",
+            hostScore: this.duelScores.host,
+            guestScore: this.duelScores.guest,
+          });
+        }
         let allRemoved = true;
         for (let i = 0; i < this.removed.length; i++) {
           if (!this.removed[i]) {
@@ -239,7 +260,8 @@ export class GameRoom {
           }
         }
         if (allRemoved) {
-          await this.finishCoop("perfect");
+          if (this.room.mode === "coop") await this.finishCoop("perfect");
+          else await this.finishDuel("perfect");
         }
       } else {
         this.send(ws, { type: "rejected" });
@@ -266,6 +288,11 @@ export class GameRoom {
         this.raceResults.set(info.role, { name: info.name, score: this.coopScore });
         if (this.raceResults.size >= 2) {
           await this.finishCoop("timeup");
+        }
+      } else if (this.room.mode === "duel") {
+        this.raceResults.set(info.role, { name: info.name });
+        if (this.raceResults.size >= 2) {
+          await this.finishDuel("timeup");
         }
       }
       return;
@@ -347,6 +374,22 @@ export class GameRoom {
     });
 
     this.broadcast({ type: "game_over", mode: "coop", score: this.coopScore, reason });
+  }
+
+  async finishDuel(reason) {
+    if (this.room.status === "finished") return;
+    this.room.status = "finished";
+    await this.persist();
+
+    const hostScore = this.duelScores.host;
+    const guestScore = this.duelScores.guest;
+    let winnerName = null;
+    if (hostScore > guestScore) winnerName = this.room.hostName;
+    else if (guestScore > hostScore) winnerName = this.room.guestName;
+
+    await this.recordMatch({ player1Score: hostScore, player2Score: guestScore, winnerName });
+
+    this.broadcast({ type: "game_over", mode: "duel", hostScore, guestScore, winnerName, reason });
   }
 
   async recordMatch({ player1Score, player2Score, winnerName }) {
