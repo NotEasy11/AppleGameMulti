@@ -63,13 +63,14 @@
     </div>
     <div class="admin-block">
       <h3>데일리 플레이 리셋</h3>
-      <select id="admin-reset-name-select"></select>
+      <input id="admin-reset-name-select" type="text" list="admin-accounts-list" maxlength="12" placeholder="대상 계정 이름 (목록에서 선택 또는 직접 입력)">
       <input id="admin-reset-date-input" type="text" placeholder="날짜 YYYY-MM-DD (비우면 오늘)">
       <button id="btn-admin-reset-daily">리셋</button>
     </div>
     <div class="admin-block">
       <h3>유저 계정 잠금 관리</h3>
-      <select id="admin-ban-select"></select>
+      <input id="admin-ban-select" type="text" list="admin-accounts-list" maxlength="12" placeholder="대상 계정 이름 (목록에서 선택 또는 직접 입력)">
+      <datalist id="admin-accounts-list"></datalist>
       <div class="account-buttons">
         <button id="btn-admin-ban" class="danger">계정 잠금</button>
         <button id="btn-admin-unban" class="secondary">잠금 해제</button>

@@ -65,6 +65,7 @@ const adminResetNameSelectEl = document.getElementById("admin-reset-name-select"
 const adminResetDateInputEl = document.getElementById("admin-reset-date-input");
 const adminMessageEl = document.getElementById("admin-message");
 const adminBanSelectEl = document.getElementById("admin-ban-select");
+const adminAccountsListEl = document.getElementById("admin-accounts-list");
 const adminBanMessageEl = document.getElementById("admin-ban-message");
 
 // ---------- Multiplayer DOM refs ----------
@@ -292,8 +293,6 @@ document.getElementById("btn-account-back").addEventListener("click", () => {
 async function loadAdminAccounts() {
   const account = getAccount();
   if (!account) return;
-  adminResetNameSelectEl.innerHTML = '<option value="">불러오는 중...</option>';
-  adminBanSelectEl.innerHTML = '<option value="">불러오는 중...</option>';
   try {
     const { ok, data } = await fetchJson("/api/admin/accounts", {
       method: "POST",
@@ -302,23 +301,15 @@ async function loadAdminAccounts() {
     });
     if (!ok || !data || !data.ok) throw new Error("failed");
     const accounts = data.accounts || [];
-    adminResetNameSelectEl.innerHTML = "";
-    adminBanSelectEl.innerHTML = "";
+    adminAccountsListEl.innerHTML = "";
     accounts.forEach((acc) => {
-      const resetOption = document.createElement("option");
-      resetOption.value = acc.name;
-      resetOption.textContent = acc.isBanned ? `${acc.name} (잠김)` : acc.name;
-      adminResetNameSelectEl.appendChild(resetOption);
-
-      const banOption = document.createElement("option");
-      banOption.value = acc.name;
-      banOption.textContent = acc.isBanned ? `${acc.name} (잠김)` : acc.name;
-      banOption.dataset.banned = acc.isBanned ? "1" : "0";
-      adminBanSelectEl.appendChild(banOption);
+      const option = document.createElement("option");
+      option.value = acc.name;
+      if (acc.isBanned) option.label = "잠김 상태";
+      adminAccountsListEl.appendChild(option);
     });
   } catch {
-    adminResetNameSelectEl.innerHTML = '<option value="">불러오기 실패</option>';
-    adminBanSelectEl.innerHTML = '<option value="">불러오기 실패</option>';
+    adminAccountsListEl.innerHTML = "";
   }
 }
 
@@ -330,7 +321,9 @@ function openAdminScreen() {
   adminBanMessageEl.textContent = "";
   adminBanMessageEl.className = "submit-message";
   adminClearDateInputEl.value = "";
+  adminResetNameSelectEl.value = "";
   adminResetDateInputEl.value = "";
+  adminBanSelectEl.value = "";
   showScreen("admin");
   loadAdminAccounts();
 }
