@@ -104,11 +104,15 @@ async function verifyAccount(env, name, pin) {
   }
 
   const row = await env.DB.prepare(
-    "SELECT pin_hash, pin_salt, failed_attempts, locked_until, is_admin FROM accounts WHERE name = ?"
+    "SELECT pin_hash, pin_salt, failed_attempts, locked_until, is_admin, is_banned FROM accounts WHERE name = ?"
   )
     .bind(trimmed)
     .first();
   if (!row) return { ok: false, status: 404, error: "account not found" };
+
+  if (row.is_banned) {
+    return { ok: false, status: 403, error: "banned" };
+  }
 
   if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
     return { ok: false, status: 423, error: "account locked" };
@@ -202,6 +206,40 @@ async function handleAdminResetDaily(request, env) {
     .run();
 
   return jsonResponse({ ok: true, date, targetName });
+}
+
+async function handleAdminListAccounts(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  if (!auth.isAdmin) return jsonResponse({ error: "forbidden" }, 403);
+
+  const { results } = await env.DB.prepare(
+    "SELECT name, is_admin as isAdmin, is_banned as isBanned FROM accounts ORDER BY name COLLATE NOCASE ASC"
+  ).all();
+  return jsonResponse({ ok: true, accounts: results ?? [] });
+}
+
+async function handleAdminSetBanned(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  if (!auth.isAdmin) return jsonResponse({ error: "forbidden" }, 403);
+
+  const targetName = validateName(body.targetName);
+  if (!targetName) return jsonResponse({ error: "invalid targetName" }, 400);
+  const banned = !!body.banned;
+
+  const result = await env.DB.prepare("UPDATE accounts SET is_banned = ? WHERE name = ?")
+    .bind(banned ? 1 : 0, targetName)
+    .run();
+  if (!result.meta || result.meta.changes === 0) {
+    return jsonResponse({ error: "account not found" }, 404);
+  }
+
+  return jsonResponse({ ok: true, targetName, banned });
 }
 
 async function handleDailyStart(request, env) {
@@ -491,6 +529,12 @@ export default {
     }
     if (url.pathname === "/api/admin/reset-daily" && request.method === "POST") {
       return handleAdminResetDaily(request, env);
+    }
+    if (url.pathname === "/api/admin/accounts" && request.method === "POST") {
+      return handleAdminListAccounts(request, env);
+    }
+    if (url.pathname === "/api/admin/set-banned" && request.method === "POST") {
+      return handleAdminSetBanned(request, env);
     }
     if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
       return handleCreateRoom(request, env);

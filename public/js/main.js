@@ -61,9 +61,11 @@ const accountNameInputEl = document.getElementById("account-name-input");
 const accountPinInputEl = document.getElementById("account-pin-input");
 const accountMessageEl = document.getElementById("account-message");
 const adminClearDateInputEl = document.getElementById("admin-clear-date-input");
-const adminResetNameInputEl = document.getElementById("admin-reset-name-input");
+const adminResetNameSelectEl = document.getElementById("admin-reset-name-select");
 const adminResetDateInputEl = document.getElementById("admin-reset-date-input");
 const adminMessageEl = document.getElementById("admin-message");
+const adminBanSelectEl = document.getElementById("admin-ban-select");
+const adminBanMessageEl = document.getElementById("admin-ban-message");
 
 // ---------- Multiplayer DOM refs ----------
 const mpEntryMessageEl = document.getElementById("mp-entry-message");
@@ -232,6 +234,8 @@ const ACCOUNT_ERROR_MESSAGES = {
   "invalid pin": "이름 또는 PIN이 올바르지 않습니다.",
   "account locked": "로그인 실패가 많아 잠시 잠겼습니다. 5분 후 다시 시도해주세요.",
   "invalid name": "이름을 1~12자로 입력해주세요.",
+  banned:
+    "본인의 계정은 관리자의 권한으로\nBAN 당하셨습니다. \n이의가 있으시면 관리자와 \n직접 소통하길 바랍니다.",
 };
 
 async function submitAccountForm(url) {
@@ -285,15 +289,50 @@ document.getElementById("btn-account-back").addEventListener("click", () => {
   showScreen("title");
 });
 
+async function loadAdminAccounts() {
+  const account = getAccount();
+  if (!account) return;
+  adminResetNameSelectEl.innerHTML = '<option value="">불러오는 중...</option>';
+  adminBanSelectEl.innerHTML = '<option value="">불러오는 중...</option>';
+  try {
+    const { ok, data } = await fetchJson("/api/admin/accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin }),
+    });
+    if (!ok || !data || !data.ok) throw new Error("failed");
+    const accounts = data.accounts || [];
+    adminResetNameSelectEl.innerHTML = "";
+    adminBanSelectEl.innerHTML = "";
+    accounts.forEach((acc) => {
+      const resetOption = document.createElement("option");
+      resetOption.value = acc.name;
+      resetOption.textContent = acc.isBanned ? `${acc.name} (잠김)` : acc.name;
+      adminResetNameSelectEl.appendChild(resetOption);
+
+      const banOption = document.createElement("option");
+      banOption.value = acc.name;
+      banOption.textContent = acc.isBanned ? `${acc.name} (잠김)` : acc.name;
+      banOption.dataset.banned = acc.isBanned ? "1" : "0";
+      adminBanSelectEl.appendChild(banOption);
+    });
+  } catch {
+    adminResetNameSelectEl.innerHTML = '<option value="">불러오기 실패</option>';
+    adminBanSelectEl.innerHTML = '<option value="">불러오기 실패</option>';
+  }
+}
+
 function openAdminScreen() {
   const account = getAccount();
   if (!account || !account.isAdmin) return;
   adminMessageEl.textContent = "";
   adminMessageEl.className = "submit-message";
+  adminBanMessageEl.textContent = "";
+  adminBanMessageEl.className = "submit-message";
   adminClearDateInputEl.value = "";
-  adminResetNameInputEl.value = "";
   adminResetDateInputEl.value = "";
   showScreen("admin");
+  loadAdminAccounts();
 }
 
 document.getElementById("btn-admin-back").addEventListener("click", () => {
@@ -332,9 +371,9 @@ document.getElementById("btn-admin-clear-scores").addEventListener("click", asyn
 document.getElementById("btn-admin-reset-daily").addEventListener("click", async () => {
   const account = getAccount();
   if (!account) return;
-  const targetName = adminResetNameInputEl.value.trim();
+  const targetName = adminResetNameSelectEl.value.trim();
   if (targetName.length === 0) {
-    adminMessageEl.textContent = "대상 계정 이름을 입력해주세요.";
+    adminMessageEl.textContent = "대상 계정을 선택해주세요.";
     adminMessageEl.className = "submit-message error";
     return;
   }
@@ -360,6 +399,44 @@ document.getElementById("btn-admin-reset-daily").addEventListener("click", async
     adminMessageEl.className = "submit-message error";
   }
 });
+
+async function submitSetBanned(banned) {
+  const account = getAccount();
+  if (!account) return;
+  const targetName = adminBanSelectEl.value.trim();
+  if (targetName.length === 0) {
+    adminBanMessageEl.textContent = "대상 계정을 선택해주세요.";
+    adminBanMessageEl.className = "submit-message error";
+    return;
+  }
+  if (banned && !confirm(`${targetName} 계정을 잠그시겠습니까?`)) return;
+
+  adminBanMessageEl.textContent = "처리 중...";
+  adminBanMessageEl.className = "submit-message";
+  try {
+    const { ok, data } = await fetchJson("/api/admin/set-banned", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: account.name, pin: account.pin, targetName, banned }),
+    });
+    if (ok && data && data.ok) {
+      adminBanMessageEl.textContent = banned
+        ? `${data.targetName} 계정을 잠갔습니다.`
+        : `${data.targetName} 계정의 잠금을 해제했습니다.`;
+      adminBanMessageEl.className = "submit-message success";
+      loadAdminAccounts();
+    } else {
+      adminBanMessageEl.textContent = `실패: ${(data && data.error) || "알 수 없는 오류"}`;
+      adminBanMessageEl.className = "submit-message error";
+    }
+  } catch {
+    adminBanMessageEl.textContent = "네트워크 오류가 발생했습니다.";
+    adminBanMessageEl.className = "submit-message error";
+  }
+}
+
+document.getElementById("btn-admin-ban").addEventListener("click", () => submitSetBanned(true));
+document.getElementById("btn-admin-unban").addEventListener("click", () => submitSetBanned(false));
 
 function formatShortDate(dateStr) {
   if (typeof dateStr !== "string") return "";

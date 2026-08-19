@@ -698,14 +698,17 @@ button:active {
 #account-name-input,
 #account-pin-input,
 #admin-clear-date-input,
-#admin-reset-name-input,
+#admin-reset-name-select,
 #admin-reset-date-input,
+#admin-ban-select,
 #mp-join-code-input {
   font-family: inherit;
   font-size: 15px;
   padding: 10px 12px;
   border: 1px solid #d1d1d6;
   border-radius: 8px;
+  background: #fff;
+  color: var(--color-text);
 }
 
 .submit-account-label {
@@ -720,6 +723,7 @@ button:active {
 .submit-message {
   font-size: 13px;
   min-height: 18px;
+  white-space: pre-line;
 }
 
 .submit-message.success {
