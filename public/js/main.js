@@ -1144,10 +1144,11 @@ function renderMpLeaderboardInto(listEl, mode, entries) {
   if (!entries || entries.length === 0) {
     const li = document.createElement("li");
     li.className = "leaderboard-empty";
-    li.textContent = mode === "race" ? "아직 기록된 승리가 없습니다" : "아직 등록된 협동 기록이 없습니다";
+    li.textContent = mode === "coop" ? "아직 등록된 협동 기록이 없습니다" : "아직 기록된 승리가 없습니다";
     listEl.appendChild(li);
     return;
   }
+  const isWinLoss = mode === "race" || mode === "duel";
   entries.forEach((entry, i) => {
     const li = document.createElement("li");
     const rank = document.createElement("span");
@@ -1155,10 +1156,10 @@ function renderMpLeaderboardInto(listEl, mode, entries) {
     rank.textContent = `#${i + 1}`;
     const nickname = document.createElement("span");
     nickname.className = "nickname";
-    nickname.textContent = mode === "race" ? entry.nickname : `${entry.player1_name} & ${entry.player2_name}`;
+    nickname.textContent = isWinLoss ? entry.nickname : `${entry.player1_name} & ${entry.player2_name}`;
     const score = document.createElement("span");
     score.className = "score";
-    score.textContent = mode === "race" ? `${entry.wins}승 ${entry.losses}패` : String(entry.score);
+    score.textContent = isWinLoss ? `${entry.wins}승 ${entry.losses}패` : String(entry.score);
     li.append(rank, nickname, score);
     listEl.appendChild(li);
   });
@@ -1261,6 +1262,12 @@ document.getElementById("mp-tab-race").addEventListener("click", (e) => {
   loadMpLeaderboardTab("race");
 });
 
+document.getElementById("mp-tab-duel").addEventListener("click", (e) => {
+  document.querySelectorAll("#screen-mp-leaderboard .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadMpLeaderboardTab("duel");
+});
+
 document.getElementById("mp-tab-coop").addEventListener("click", (e) => {
   document.querySelectorAll("#screen-mp-leaderboard .tab-button").forEach((b) => b.classList.remove("active"));
   e.target.classList.add("active");
@@ -1271,6 +1278,12 @@ document.getElementById("title-mp-tab-race").addEventListener("click", (e) => {
   document.querySelectorAll(".title-mp-tabs .tab-button").forEach((b) => b.classList.remove("active"));
   e.target.classList.add("active");
   loadTitleMpRanking("race");
+});
+
+document.getElementById("title-mp-tab-duel").addEventListener("click", (e) => {
+  document.querySelectorAll(".title-mp-tabs .tab-button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  loadTitleMpRanking("duel");
 });
 
 document.getElementById("title-mp-tab-coop").addEventListener("click", (e) => {

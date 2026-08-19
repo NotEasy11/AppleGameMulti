@@ -433,6 +433,22 @@ async function handleMultiplayerLeaderboard(request, env) {
     return jsonResponse({ mode, entries: results ?? [] });
   }
 
+  if (mode === "duel") {
+    const { results } = await env.DB.prepare(
+      "SELECT name as nickname, " +
+        "SUM(CASE WHEN winner_name = name THEN 1 ELSE 0 END) as wins, " +
+        "SUM(CASE WHEN winner_name IS NOT NULL AND winner_name != name THEN 1 ELSE 0 END) as losses " +
+        "FROM (" +
+        "SELECT player1_name as name, winner_name FROM multiplayer_matches WHERE mode = 'duel' " +
+        "UNION ALL " +
+        "SELECT player2_name as name, winner_name FROM multiplayer_matches WHERE mode = 'duel'" +
+        ") GROUP BY name ORDER BY wins DESC, losses ASC LIMIT ?"
+    )
+      .bind(limit)
+      .all();
+    return jsonResponse({ mode, entries: results ?? [] });
+  }
+
   if (mode === "coop") {
     const { results } = await env.DB.prepare(
       "SELECT player1_name, player2_name, player1_score as score, created_at " +
