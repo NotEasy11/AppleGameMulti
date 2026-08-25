@@ -6,6 +6,38 @@ export const TARGET_SUM = 10;
 export const MIN_VALID_RECTS = 30;
 export const MAX_GENERATION_ATTEMPTS = 200;
 
+// Shared by client (main.js) and server (src/index.js) so difficulty
+// parameters used to generate a board and to verify a submitted score
+// can never drift apart.
+export const PRACTICE_DIFFICULTIES = {
+  easy: {
+    key: "easy",
+    label: "새싹",
+    sublabel: "쉬움",
+    emoji: "🌱",
+    desc: "제한 시간 150초 · 합 10 조합이 많은 넉넉한 보드",
+    durationSeconds: 150,
+    minValidRects: 90,
+  },
+  normal: {
+    key: "normal",
+    label: "사과",
+    sublabel: "보통",
+    emoji: "🍎",
+    desc: "제한 시간 120초 · 기본 보드",
+    durationSeconds: 120,
+  },
+  hard: {
+    key: "hard",
+    label: "황금사과",
+    sublabel: "어려움",
+    emoji: "🌟",
+    desc: "제한 시간 90초 · 합 10 조합이 적은 빡빡한 보드",
+    durationSeconds: 90,
+    maxValidRects: 60,
+  },
+};
+
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -80,13 +112,15 @@ export function countValidRects(prefix) {
   return count;
 }
 
-export function generateBoard(seed) {
+export function generateBoard(seed, options = {}) {
+  const minValidRects = options.minValidRects ?? MIN_VALID_RECTS;
+  const maxValidRects = options.maxValidRects ?? Infinity;
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
     const rng = mulberry32((seed + attempt * 2654435761) >>> 0);
     const values = generateValues(rng);
     const prefix = buildPrefixSum(values);
     const validCount = countValidRects(prefix);
-    if (validCount >= MIN_VALID_RECTS) {
+    if (validCount >= minValidRects && validCount <= maxValidRects) {
       return { values, seed, attempt, validCount };
     }
   }

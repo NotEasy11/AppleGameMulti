@@ -3,6 +3,7 @@ import {
   hashStringToSeed,
   getDailySeedString,
   TARGET_SUM,
+  PRACTICE_DIFFICULTIES,
 } from "../public/js/board.js";
 import { GameRoom } from "./gameRoom.js";
 
@@ -402,6 +403,88 @@ async function handleLeaderboard(request, env) {
   return jsonResponse({ period, date: today, entries: results ?? [] });
 }
 
+async function handleSubmitPracticeScore(request, env) {
+  const body = await safeJson(request);
+  if (!body) return jsonResponse({ error: "invalid json" }, 400);
+
+  const auth = await verifyAccount(env, body.name, body.pin);
+  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+  const { difficulty, seed, score, inputLog } = body;
+  const diffConfig = PRACTICE_DIFFICULTIES[difficulty];
+  if (!diffConfig) return jsonResponse({ error: "invalid difficulty" }, 400);
+  if (typeof seed !== "number" || !Number.isInteger(seed) || seed < 0) {
+    return jsonResponse({ error: "invalid seed" }, 400);
+  }
+  if (typeof score !== "number" || !Number.isInteger(score) || score < 0) {
+    return jsonResponse({ error: "invalid score" }, 400);
+  }
+  if (!Array.isArray(inputLog)) return jsonResponse({ error: "invalid inputLog" }, 400);
+  const lastT = inputLog.length > 0 ? inputLog[inputLog.length - 1].t : 0;
+  const durationMs = diffConfig.durationSeconds * 1000;
+  if (typeof lastT !== "number" || lastT < 0 || lastT > durationMs + TIMING_GRACE_MS) {
+    return jsonResponse({ error: "invalid timing" }, 400);
+  }
+
+  const { values } = generateBoard(seed, {
+    minValidRects: diffConfig.minValidRects,
+    maxValidRects: diffConfig.maxValidRects,
+  });
+  const verifiedScore = replayLog(values, inputLog);
+  if (verifiedScore === null || verifiedScore !== score) {
+    return jsonResponse({ error: "verification failed" }, 400);
+  }
+
+  const ip = getIp(request);
+  await env.DB.prepare(
+    "INSERT INTO practice_scores (difficulty, account_name, score, accuracy, max_removal, seed, input_log, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  )
+    .bind(
+      difficulty,
+      auth.name,
+      score,
+      typeof body.accuracy === "number" ? body.accuracy : 0,
+      typeof body.maxRemoval === "number" ? body.maxRemoval : 0,
+      seed,
+      JSON.stringify(inputLog),
+      ip
+    )
+    .run();
+
+  const rankRow = await env.DB.prepare(
+    "SELECT COUNT(*) as rank FROM (SELECT account_name, MAX(score) as best FROM practice_scores WHERE difficulty = ? GROUP BY account_name) WHERE best > ?"
+  )
+    .bind(difficulty, score)
+    .first();
+  const totalRow = await env.DB.prepare(
+    "SELECT COUNT(DISTINCT account_name) as total FROM practice_scores WHERE difficulty = ?"
+  )
+    .bind(difficulty)
+    .first();
+
+  return jsonResponse({ ok: true, rank: (rankRow?.rank ?? 0) + 1, total: totalRow?.total ?? 1 });
+}
+
+async function handlePracticeLeaderboard(request, env) {
+  const url = new URL(request.url);
+  const difficulty = url.searchParams.get("difficulty") || "normal";
+  if (!PRACTICE_DIFFICULTIES[difficulty]) return jsonResponse({ error: "invalid difficulty" }, 400);
+  const limitParam = parseInt(url.searchParams.get("limit") || "20", 10);
+  const limit = Math.min(Math.max(1, Number.isNaN(limitParam) ? 20 : limitParam), MAX_LEADERBOARD_LIMIT);
+
+  const { results } = await env.DB.prepare(
+    "SELECT nickname, score, created_at FROM (" +
+      "SELECT account_name as nickname, score, created_at, " +
+      "ROW_NUMBER() OVER (PARTITION BY account_name ORDER BY score DESC, created_at ASC) as rn " +
+      "FROM practice_scores WHERE difficulty = ?" +
+      ") WHERE rn = 1 ORDER BY score DESC LIMIT ?"
+  )
+    .bind(difficulty, limit)
+    .all();
+
+  return jsonResponse({ difficulty, entries: results ?? [] });
+}
+
 function generateRoomCode() {
   let code = "";
   for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
@@ -523,6 +606,12 @@ export default {
     }
     if (url.pathname === "/api/leaderboard" && request.method === "GET") {
       return handleLeaderboard(request, env);
+    }
+    if (url.pathname === "/api/practice/scores" && request.method === "POST") {
+      return handleSubmitPracticeScore(request, env);
+    }
+    if (url.pathname === "/api/practice/leaderboard" && request.method === "GET") {
+      return handlePracticeLeaderboard(request, env);
     }
     if (url.pathname === "/api/admin/clear-scores" && request.method === "POST") {
       return handleAdminClearScores(request, env);

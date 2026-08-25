@@ -23,6 +23,7 @@
     <button id="btn-view-rules" class="link-button">게임 방법</button>
     <button id="btn-view-leaderboard" class="link-button">랭킹 보기</button>
     <button id="btn-view-mp-leaderboard" class="link-button">멀티 랭킹</button>
+    <button id="btn-view-practice-leaderboard" class="link-button">난이도 랭킹</button>
   </div>
   <div class="title-ranking-panel">
     <h3>오늘의 일간 랭킹</h3>
@@ -35,6 +36,14 @@
       <button id="title-mp-tab-coop" class="tab-button" data-mp-mode="coop">협동 (최고 합산)</button>
     </div>
     <ol id="title-mp-ranking-list" class="leaderboard-list"></ol>
+  </div>
+  <div class="title-practice-ranking-panel">
+    <div class="title-practice-tabs">
+      <button id="title-practice-tab-easy" class="tab-button active" data-difficulty="easy">🌱 새싹</button>
+      <button id="title-practice-tab-normal" class="tab-button" data-difficulty="normal">🍎 사과</button>
+      <button id="title-practice-tab-hard" class="tab-button" data-difficulty="hard">🌟 황금사과</button>
+    </div>
+    <ol id="title-practice-ranking-list" class="leaderboard-list"></ol>
   </div>
 </section>
 
@@ -80,6 +89,36 @@
     <div id="admin-message" class="submit-message"></div>
   </div>
   <button id="btn-admin-back" class="secondary">돌아가기</button>
+</section>
+
+<section id="screen-practice-select" class="screen">
+  <h2>자유 연습 - 난이도 선택</h2>
+  <div class="mp-card">
+    <div class="difficulty-buttons">
+      <button id="btn-difficulty-easy" class="difficulty-btn">
+        <span class="difficulty-emoji">🌱</span>
+        <span class="difficulty-text">
+          <span class="difficulty-name">새싹 <small>(쉬움)</small></span>
+          <span class="difficulty-desc">제한 시간 150초 · 합 10 조합이 많은 넉넉한 보드</span>
+        </span>
+      </button>
+      <button id="btn-difficulty-normal" class="difficulty-btn">
+        <span class="difficulty-emoji">🍎</span>
+        <span class="difficulty-text">
+          <span class="difficulty-name">사과 <small>(보통)</small></span>
+          <span class="difficulty-desc">제한 시간 120초 · 기본 보드</span>
+        </span>
+      </button>
+      <button id="btn-difficulty-hard" class="difficulty-btn">
+        <span class="difficulty-emoji">🌟</span>
+        <span class="difficulty-text">
+          <span class="difficulty-name">황금사과 <small>(어려움)</small></span>
+          <span class="difficulty-desc">제한 시간 90초 · 합 10 조합이 적은 빡빡한 보드</span>
+        </span>
+      </button>
+    </div>
+  </div>
+  <button id="btn-practice-select-back" class="secondary">돌아가기</button>
 </section>
 
 <section id="screen-rules" class="screen">
@@ -252,6 +291,17 @@
   </div>
   <ol id="mp-leaderboard-list" class="leaderboard-list"></ol>
   <button id="btn-mp-leaderboard-back" class="secondary">돌아가기</button>
+</section>
+
+<section id="screen-practice-leaderboard" class="screen">
+  <h2>난이도별 랭킹</h2>
+  <div class="leaderboard-tabs">
+    <button id="practice-tab-easy" class="tab-button active" data-difficulty="easy">🌱 새싹</button>
+    <button id="practice-tab-normal" class="tab-button" data-difficulty="normal">🍎 사과</button>
+    <button id="practice-tab-hard" class="tab-button" data-difficulty="hard">🌟 황금사과</button>
+  </div>
+  <ol id="practice-leaderboard-list" class="leaderboard-list"></ol>
+  <button id="btn-practice-leaderboard-back" class="secondary">돌아가기</button>
 </section>
 
 <script type="module" src="/js/main.js"></script>

@@ -1,16 +1,26 @@
-import { generateBoard, getDailySeedString, ROWS, COLS, CELL_SIZE, CELL_COUNT } from "./board.js";
+import {
+  generateBoard,
+  getDailySeedString,
+  ROWS,
+  COLS,
+  CELL_SIZE,
+  CELL_COUNT,
+  PRACTICE_DIFFICULTIES,
+} from "./board.js";
 import { createDragController } from "./drag.js";
 import { runCountdown, createGameTimer, GAME_DURATION_SECONDS } from "./timer.js";
 import { createScoreTracker } from "./score.js";
 
 const ACCOUNT_KEY = "appleGameAccount";
 const LEADERBOARD_PERIODS = ["daily", "weekly", "alltime"];
+const PRACTICE_DIFFICULTY_KEYS = ["easy", "normal", "hard"];
 const PIN_PATTERN = /^\d{4,8}$/;
 
 const screens = {
   title: document.getElementById("screen-title"),
   account: document.getElementById("screen-account"),
   admin: document.getElementById("screen-admin"),
+  practiceSelect: document.getElementById("screen-practice-select"),
   game: document.getElementById("screen-game"),
   result: document.getElementById("screen-result"),
   leaderboard: document.getElementById("screen-leaderboard"),
@@ -20,6 +30,7 @@ const screens = {
   mpGame: document.getElementById("screen-mp-game"),
   mpResult: document.getElementById("screen-mp-result"),
   mpLeaderboard: document.getElementById("screen-mp-leaderboard"),
+  practiceLeaderboard: document.getElementById("screen-practice-leaderboard"),
 };
 
 function showScreen(name) {
@@ -29,6 +40,7 @@ function showScreen(name) {
   if (name === "title") {
     loadTitleRanking();
     loadTitleMpRanking(titleMpRankingMode);
+    loadTitlePracticeRanking(titlePracticeRankingMode);
   }
 }
 
@@ -55,6 +67,8 @@ const submitMessageEl = document.getElementById("submit-message");
 const leaderboardListEl = document.getElementById("leaderboard-list");
 const titleRankingListEl = document.getElementById("title-ranking-list");
 const titleMpRankingListEl = document.getElementById("title-mp-ranking-list");
+const titlePracticeRankingListEl = document.getElementById("title-practice-ranking-list");
+const practiceLeaderboardListEl = document.getElementById("practice-leaderboard-list");
 const accountStatusEl = document.getElementById("account-status");
 const accountIntroEl = document.getElementById("account-intro");
 const accountNameInputEl = document.getElementById("account-name-input");
@@ -507,6 +521,20 @@ async function loadTitleMpRanking(mode) {
   }
 }
 
+let titlePracticeRankingMode = "easy";
+
+async function loadTitlePracticeRanking(difficulty) {
+  titlePracticeRankingMode = difficulty;
+  titlePracticeRankingListEl.innerHTML = '<li class="leaderboard-empty">불러오는 중...</li>';
+  try {
+    const { ok, data } = await fetchJson(`/api/practice/leaderboard?difficulty=${difficulty}&limit=10`);
+    if (!ok || !data) throw new Error("failed");
+    renderLeaderboardEntries(titlePracticeRankingListEl, data.entries, "아직 등록된 기록이 없습니다");
+  } catch {
+    renderLeaderboardEntries(titlePracticeRankingListEl, [], "랭킹을 불러올 수 없습니다");
+  }
+}
+
 async function loadLeaderboardTab(period) {
   leaderboardListEl.innerHTML = '<li class="leaderboard-empty">불러오는 중...</li>';
   try {
@@ -554,6 +582,8 @@ let scoreTracker = null;
 let ended = false;
 let mode = "practice";
 let currentDate = null;
+let currentPracticeDifficulty = null;
+let currentSeed = null;
 let gameStartedAt = 0;
 let inputLog = [];
 let todayTopScore = 0;
@@ -622,7 +652,7 @@ function updateSidePanel() {
 function onDragCommit(includedIndices) {
   if (ended) return;
   scoreTracker.recordDrag(includedIndices.length);
-  if (mode === "daily" && includedIndices.length > 0) {
+  if ((mode === "daily" || mode === "practice") && includedIndices.length > 0) {
     inputLog.push({ indices: includedIndices.slice(), t: Date.now() - gameStartedAt });
   }
   for (const idx of includedIndices) {
@@ -635,8 +665,10 @@ function onDragCommit(includedIndices) {
   }
 }
 
+let activeDurationSeconds = GAME_DURATION_SECONDS;
+
 function onTimerTick(remaining, urgent) {
-  const pct = Math.max(0, (remaining / GAME_DURATION_SECONDS) * 100);
+  const pct = Math.max(0, (remaining / activeDurationSeconds) * 100);
   timerBarEl.style.width = `${pct}%`;
   timerBarEl.classList.toggle("urgent", urgent);
   timerLabelEl.classList.toggle("urgent", urgent);
@@ -653,6 +685,8 @@ function resetSubmitSection() {
     const strong = document.createElement("strong");
     strong.textContent = account.name;
     submitAccountLabelEl.append(strong, document.createTextNode("님으로 등록됩니다"));
+  } else {
+    submitAccountLabelEl.textContent = "로그인 후 랭킹에 등록할 수 있습니다";
   }
 }
 
@@ -669,7 +703,7 @@ function endGame(reason) {
   resultReasonEl.textContent =
     reason === "perfect" ? "퍼펙트! 모든 사과를 제거했습니다" : reason === "quit" ? "포기" : "시간 종료";
 
-  if (mode === "daily") {
+  if (mode === "daily" || mode === "practice") {
     submitSectionEl.style.display = "flex";
     resetSubmitSection();
   } else {
@@ -679,20 +713,28 @@ function endGame(reason) {
   showScreen("result");
 }
 
-async function startGame(gameMode, seed) {
+async function startGame(gameMode, seed, difficultyKey) {
   mode = gameMode;
   ended = false;
   inputLog = [];
   toppedTodayScore = false;
   todayTopScore = 0;
   scoreSubmitted = false;
+  currentSeed = seed;
+
+  const difficulty = mode === "practice" ? PRACTICE_DIFFICULTIES[difficultyKey] || PRACTICE_DIFFICULTIES.normal : {};
+  currentPracticeDifficulty = mode === "practice" ? difficulty.key : null;
+  activeDurationSeconds = difficulty.durationSeconds ?? GAME_DURATION_SECONDS;
 
   if (mode === "daily") {
     currentDate = getDailySeedString();
     todayTopScore = await loadTop5();
   }
 
-  const board = generateBoard(seed);
+  const board = generateBoard(seed, {
+    minValidRects: difficulty.minValidRects,
+    maxValidRects: difficulty.maxValidRects,
+  });
   values = board.values;
   removed = new Uint8Array(CELL_COUNT);
   scoreTracker = createScoreTracker();
@@ -701,7 +743,7 @@ async function startGame(gameMode, seed) {
   timerBarEl.style.width = "100%";
   timerBarEl.classList.remove("urgent");
   timerLabelEl.classList.remove("urgent");
-  timerLabelEl.textContent = `남은 시간 ${GAME_DURATION_SECONDS}초`;
+  timerLabelEl.textContent = `남은 시간 ${activeDurationSeconds}초`;
 
   showScreen("game");
   countdownOverlay.classList.add("active");
@@ -723,7 +765,7 @@ async function startGame(gameMode, seed) {
         onCommit: onDragCommit,
       });
       timer = createGameTimer({
-        durationSeconds: GAME_DURATION_SECONDS,
+        durationSeconds: activeDurationSeconds,
         onTick: onTimerTick,
         onExpire: () => endGame("timeup"),
       });
@@ -775,9 +817,19 @@ btnDailyEl.addEventListener("click", async () => {
 });
 
 document.getElementById("btn-practice").addEventListener("click", () => {
-  const seed = (Math.random() * 0xffffffff) >>> 0;
-  startGame("practice", seed);
+  showScreen("practiceSelect");
 });
+
+document.getElementById("btn-practice-select-back").addEventListener("click", () => {
+  showScreen("title");
+});
+
+for (const key of PRACTICE_DIFFICULTY_KEYS) {
+  document.getElementById(`btn-difficulty-${key}`).addEventListener("click", () => {
+    const seed = (Math.random() * 0xffffffff) >>> 0;
+    startGame("practice", seed, key);
+  });
+}
 
 document.getElementById("btn-quit").addEventListener("click", () => {
   if (confirm("게임을 포기하시겠습니까?")) {
@@ -799,8 +851,7 @@ document.getElementById("btn-retry").addEventListener("click", () => {
 btnSubmitScoreEl.addEventListener("click", async () => {
   const account = getAccount();
   if (!account) {
-    submitMessageEl.textContent = "로그인 정보가 없습니다. 다시 로그인해주세요.";
-    submitMessageEl.className = "submit-message error";
+    openAccountScreen();
     return;
   }
 
@@ -808,29 +859,43 @@ btnSubmitScoreEl.addEventListener("click", async () => {
   submitMessageEl.textContent = "등록 중...";
   submitMessageEl.className = "submit-message";
 
+  const isPractice = mode === "practice";
   const summary = scoreTracker.getSummary();
-  const payload = {
-    name: account.name,
-    pin: account.pin,
-    date: currentDate,
-    score: summary.score,
-    accuracy: summary.accuracy,
-    maxRemoval: summary.maxRemovalCount,
-    inputLog,
-  };
+  const payload = isPractice
+    ? {
+        name: account.name,
+        pin: account.pin,
+        difficulty: currentPracticeDifficulty,
+        seed: currentSeed,
+        score: summary.score,
+        accuracy: summary.accuracy,
+        maxRemoval: summary.maxRemovalCount,
+        inputLog,
+      }
+    : {
+        name: account.name,
+        pin: account.pin,
+        date: currentDate,
+        score: summary.score,
+        accuracy: summary.accuracy,
+        maxRemoval: summary.maxRemovalCount,
+        inputLog,
+      };
 
   try {
-    const { ok, status, data } = await fetchJson("/api/scores", {
+    const { ok, status, data } = await fetchJson(isPractice ? "/api/practice/scores" : "/api/scores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
     if (ok && data && data.ok) {
-      submitMessageEl.textContent = `등록 완료! 오늘 순위 #${data.rank} / ${data.total}명`;
+      submitMessageEl.textContent = isPractice
+        ? `등록 완료! 난이도 순위 #${data.rank} / ${data.total}명`
+        : `등록 완료! 오늘 순위 #${data.rank} / ${data.total}명`;
       submitMessageEl.className = "submit-message success";
       scoreSubmitted = true;
-      loadTop5();
+      if (!isPractice) loadTop5();
     } else if (status === 409 && data && data.error === "already submitted today") {
       submitMessageEl.textContent = "오늘 랭킹에는 이미 등록하셨습니다.";
       submitMessageEl.className = "submit-message success";
@@ -846,7 +911,9 @@ btnSubmitScoreEl.addEventListener("click", async () => {
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
     } else if (data && data.error === "verification failed") {
-      submitMessageEl.textContent = "기록을 검증하지 못했습니다. 새로고침 후 데일리 챌린지를 다시 플레이해주세요.";
+      submitMessageEl.textContent = isPractice
+        ? "기록을 검증하지 못했습니다. 새로고침 후 다시 플레이해주세요."
+        : "기록을 검증하지 못했습니다. 새로고침 후 데일리 챌린지를 다시 플레이해주세요.";
       submitMessageEl.className = "submit-message error";
       btnSubmitScoreEl.disabled = false;
     } else {
@@ -1250,6 +1317,17 @@ async function loadMpLeaderboardTab(mode) {
   }
 }
 
+async function loadPracticeLeaderboardTab(difficulty) {
+  practiceLeaderboardListEl.innerHTML = '<li class="leaderboard-empty">불러오는 중...</li>';
+  try {
+    const { ok, data } = await fetchJson(`/api/practice/leaderboard?difficulty=${difficulty}&limit=20`);
+    if (!ok || !data) throw new Error("failed");
+    renderLeaderboardEntries(practiceLeaderboardListEl, data.entries, "아직 등록된 기록이 없습니다");
+  } catch {
+    renderLeaderboardEntries(practiceLeaderboardListEl, [], "랭킹을 불러올 수 없습니다");
+  }
+}
+
 document.getElementById("btn-mp-entry").addEventListener("click", () => {
   mpEntryMessageEl.textContent = "";
   mpJoinCodeInputEl.value = "";
@@ -1362,8 +1440,30 @@ document.getElementById("title-mp-tab-coop").addEventListener("click", (e) => {
   loadTitleMpRanking("coop");
 });
 
+document.getElementById("btn-view-practice-leaderboard").addEventListener("click", () => {
+  showScreen("practiceLeaderboard");
+  loadPracticeLeaderboardTab("easy");
+});
+
+document.getElementById("btn-practice-leaderboard-back").addEventListener("click", () => showScreen("title"));
+
+for (const key of PRACTICE_DIFFICULTY_KEYS) {
+  document.getElementById(`practice-tab-${key}`).addEventListener("click", (e) => {
+    document.querySelectorAll("#screen-practice-leaderboard .tab-button").forEach((b) => b.classList.remove("active"));
+    e.target.classList.add("active");
+    loadPracticeLeaderboardTab(key);
+  });
+
+  document.getElementById(`title-practice-tab-${key}`).addEventListener("click", (e) => {
+    document.querySelectorAll(".title-practice-tabs .tab-button").forEach((b) => b.classList.remove("active"));
+    e.target.classList.add("active");
+    loadTitlePracticeRanking(key);
+  });
+}
+
 refreshAccountStatus();
 syncDailyStatus();
 loadTop5();
 loadTitleRanking();
 loadTitleMpRanking("race");
+loadTitlePracticeRanking("easy");

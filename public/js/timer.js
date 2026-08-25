@@ -1,3 +1,4 @@
+// Must match PRACTICE_DIFFICULTIES.normal.durationSeconds in board.js.
 export const GAME_DURATION_SECONDS = 120;
 export const URGENT_THRESHOLD_SECONDS = 10;
 export const COUNTDOWN_STEPS = [3, 2, 1];
